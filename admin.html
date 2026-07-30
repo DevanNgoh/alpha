@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pastors Fellowship Dashboard</title>
+
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9C%9D%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="css/admin.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+</head>
+
+<body>
+
+<div class="dashboard">
+
+    <!-- Header -->
+    <header>
+        <div class="title">
+            <h1>✝ Weekly Pastors Fellowship</h1>
+            <p id="todayDate">Loading...</p>
+        </div>
+
+        <div class="top-buttons">
+            <button id="themeToggle" title="Toggle dark mode">
+                <i class="fa-solid fa-moon"></i>
+            </button>
+            <button id="exportBtn">
+                <i class="fa-solid fa-file-csv"></i>
+                Export
+            </button>
+            <button id="refreshBtn">
+                <i class="fa-solid fa-rotate-right"></i>
+                Refresh
+            </button>
+            <button id="logoutBtn">
+                <i class="fa-solid fa-right-from-bracket"></i>
+                Logout
+            </button>
+        </div>
+    </header>
+
+    <!-- Meeting Status -->
+    <section class="meeting-status">
+        <div class="meeting-left">
+            <h2>Today's Meeting</h2>
+            <p>Wednesday Pastors Fellowship</p>
+        </div>
+        <div class="status" id="meetingStatus">
+            🟢 Meeting Open
+        </div>
+    </section>
+
+    <!-- Statistics -->
+    <section class="stats">
+        <div class="card">
+            <div class="icon">👥</div>
+            <div>
+                <h3>Present</h3>
+                <h1 id="presentCount">0</h1>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="icon">📈</div>
+            <div>
+                <h3>Progress</h3>
+                <h1 id="percent">0%</h1>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="icon">⏰</div>
+            <div>
+                <h3>Last Refresh</h3>
+                <h1 id="lastRefresh">--:--</h1>
+            </div>
+        </div>
+    </section>
+
+    <!-- Progress -->
+    <section class="progress-card">
+        <div class="progress-top">
+            <span>Attendance Progress <button id="editGoalBtn" title="Set expected attendance goal"><i class="fa-solid fa-pen"></i></button></span>
+            <span id="progressText">0%</span>
+        </div>
+        <div class="progress">
+            <div id="progressBar"></div>
+        </div>
+    </section>
+
+    <!-- Search & Filter Controls -->
+    <section class="search-box">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" id="search" placeholder="Search pastors or churches...">
+        <select id="sortSelect" title="Sort attendance">
+            <option value="recent">Most Recent</option>
+            <option value="name">Name (A-Z)</option>
+            <option value="church">Church (A-Z)</option>
+        </select>
+    </section>
+
+    <!-- Attendance History & List -->
+    <section>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+            <h2 class="section-title" id="attendanceListTitle" style="margin-bottom: 0;">
+                Today's Attendance
+            </h2>
+            
+            <div>
+                <label for="meetingDateSelect" style="font-weight: 600; margin-right: 8px;">📅 View Meeting:</label>
+                <select id="meetingDateSelect" style="padding: 8px 12px; border-radius: 10px; border: 2px solid #ddd; font-family: inherit;">
+                    <option value="">Loading dates...</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="attendanceList"></div>
+    </section>
+
+</div>
+
+<script src="js/admin.js"></script>
+</body>
+</html>

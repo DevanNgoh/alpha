@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Administrator Login</title>
+
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%94%92%3C/text%3E%3C/svg%3E">
+
+    <link rel="stylesheet" href="css/login.css">
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+</head>
+
+<body>
+
+<button id="themeToggle" class="theme-toggle" title="Toggle dark mode">🌙</button>
+
+<div class="container">
+
+    <div class="card">
+
+        <div class="logo">
+            🔒
+        </div>
+
+        <h1>Administrator Login</h1>
+
+        <p>Enter the administrator password</p>
+
+        <div class="password-wrap">
+            <input
+                type="password"
+                id="password"
+                placeholder="Password"
+                autocomplete="current-password">
+            <button type="button" id="togglePassword" class="toggle-password" title="Show password">👁</button>
+        </div>
+
+        <button id="loginBtn">
+            Login
+        </button>
+
+        <p id="error"></p>
+
+        <a href="login.html" class="back">← Back to Home</a>
+
+    </div>
+
+</div>
+
+<script src="js/theme.js"></script>
+<script src="js/login.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,429 @@
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+
+    font-family:'Poppins',sans-serif;
+
+    background:linear-gradient(135deg,#0B3D2E,#145A44);
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    min-height:100vh;
+
+    transition:background .3s;
+
+}
+
+.container{
+
+    width:100%;
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+}
+
+.card{
+
+    background:white;
+
+    width:420px;
+
+    max-width:90%;
+
+    padding:45px;
+
+    border-radius:20px;
+
+    text-align:center;
+
+    box-shadow:0 20px 40px rgba(0,0,0,.2);
+
+}
+
+.logo{
+
+    width:90px;
+
+    height:90px;
+
+    margin:auto;
+
+    border-radius:50%;
+
+    background:#0B3D2E;
+
+    color:white;
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    font-size:40px;
+
+    margin-bottom:25px;
+
+}
+
+h1{
+
+    color:#0B3D2E;
+
+    margin-bottom:10px;
+
+}
+
+p{
+
+    color:#666;
+
+    margin-bottom:20px;
+
+}
+
+input{
+
+    width:100%;
+
+    padding:15px;
+
+    border-radius:10px;
+
+    border:2px solid #ddd;
+
+    font-size:16px;
+
+    margin-bottom:20px;
+
+}
+
+input:focus{
+
+    outline:none;
+
+    border-color:#0B3D2E;
+
+}
+
+button{
+
+    width:100%;
+
+    padding:15px;
+
+    border:none;
+
+    border-radius:10px;
+
+    background:#0B3D2E;
+
+    color:white;
+
+    font-size:16px;
+
+    cursor:pointer;
+
+    transition:.3s;
+
+}
+
+button:hover{
+
+    background:#145A44;
+
+}
+
+button:disabled{
+
+    opacity:.6;
+
+    cursor:not-allowed;
+
+    transform:none;
+
+}
+
+#error{
+
+    margin-top:15px;
+
+    color:red;
+
+    font-weight:600;
+
+    min-height:20px;
+
+}
+
+.back{
+
+    display:inline-block;
+
+    margin-top:20px;
+
+    color:#0B3D2E;
+
+    text-decoration:none;
+
+    font-weight:600;
+
+}
+
+.btn{
+
+    display:block;
+
+    width:100%;
+
+    padding:15px;
+
+    margin-bottom:15px;
+
+    border-radius:12px;
+
+    text-decoration:none;
+
+    font-size:16px;
+
+    font-weight:600;
+
+    text-align:center;
+
+    transition:0.3s ease;
+
+}
+
+/* Main Button */
+
+.primary-btn{
+
+    background:#0B3D2E;
+
+    color:white;
+
+}
+
+.primary-btn:hover{
+
+    background:#145A44;
+
+    transform:translateY(-2px);
+
+    box-shadow:0 8px 20px rgba(11,61,46,.3);
+
+}
+
+/* Admin Button */
+
+.secondary-btn{
+
+    background:white;
+
+    color:#0B3D2E;
+
+    border:2px solid #0B3D2E;
+
+}
+
+.secondary-btn:hover{
+
+    background:#0B3D2E;
+
+    color:white;
+
+    transform:translateY(-2px);
+
+    box-shadow:0 8px 20px rgba(11,61,46,.25);
+
+}
+
+/* ===========================
+   PASSWORD SHOW/HIDE
+=========================== */
+
+.password-wrap{
+
+    position:relative;
+
+}
+
+.password-wrap input{
+
+    padding-right:48px;
+
+}
+
+.toggle-password{
+
+    position:absolute;
+
+    right:6px;
+
+    top:6px;
+
+    width:38px;
+
+    padding:0;
+
+    height:calc(100% - 12px);
+
+    background:transparent;
+
+    color:#666;
+
+    font-size:18px;
+
+    box-shadow:none;
+
+}
+
+.toggle-password:hover{
+
+    background:#f1f1f1;
+
+    transform:none;
+
+}
+
+/* ===========================
+   DARK MODE TOGGLE BUTTON
+=========================== */
+
+.theme-toggle{
+
+    position:fixed;
+
+    top:20px;
+
+    right:20px;
+
+    z-index:10;
+
+    width:48px;
+
+    height:48px;
+
+    border-radius:50%;
+
+    background:white;
+
+    color:#0B3D2E;
+
+    font-size:20px;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    box-shadow:0 8px 20px rgba(0,0,0,.15);
+
+    cursor:pointer;
+
+    border:none;
+
+}
+
+.theme-toggle:hover{
+
+    transform:translateY(-2px) scale(1.05);
+
+}
+
+/* ===========================
+   DARK MODE
+=========================== */
+
+body.dark-mode{
+
+    background:linear-gradient(135deg,#06110d,#0d1f18);
+
+}
+
+body.dark-mode .card{
+
+    background:#152a22;
+
+    color:#eee;
+
+}
+
+body.dark-mode h1{
+
+    color:#8fe3b8;
+
+}
+
+body.dark-mode p{
+
+    color:#bcd6c9;
+
+}
+
+body.dark-mode input{
+
+    background:#1e372d;
+
+    border-color:#2c4a3d;
+
+    color:#eee;
+
+}
+
+body.dark-mode .secondary-btn{
+
+    color:#8fe3b8;
+
+    border-color:#8fe3b8;
+
+}
+
+body.dark-mode .back{
+
+    color:#8fe3b8;
+
+}
+
+body.dark-mode .toggle-password{
+
+    color:#bcd6c9;
+
+}
+
+body.dark-mode .toggle-password:hover{
+
+    background:#1e372d;
+
+}
+
+@media (max-width:480px){
+
+    .theme-toggle{
+
+        top:12px;
+
+        right:12px;
+
+        width:42px;
+
+        height:42px;
+
+        font-size:17px;
+
+    }
+
+}
