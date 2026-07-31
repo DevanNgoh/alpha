@@ -134,6 +134,133 @@ header p {
     font-weight: 600;
 }
 
+.status.status-closed {
+    background: #fde8e8;
+    color: #c0392b;
+}
+
+.meeting-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.toggle-meeting-btn {
+    border: none;
+    cursor: pointer;
+    border-radius: 12px;
+    padding: 12px 20px;
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    background: #c0392b;
+    transition: .3s;
+}
+
+.toggle-meeting-btn:hover {
+    background: #a92e21;
+    transform: translateY(-2px);
+}
+
+.toggle-meeting-btn:disabled {
+    opacity: .6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+body.dark-mode .toggle-meeting-btn {
+    background: #a92e21;
+}
+
+body.dark-mode .toggle-meeting-btn:hover {
+    background: #8f261b;
+}
+
+body.dark-mode .status.status-closed {
+    background: #3a1a17;
+    color: #f3a6a6;
+}
+
+/* ===========================
+   MEETING ACTIVITY LOG
+=========================== */
+.activity-log-card {
+    background: white;
+    padding: 25px;
+    border-radius: 18px;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, .08);
+    margin-bottom: 30px;
+}
+
+.activity-log {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.activity-entry {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    background: #f4f7f5;
+    font-weight: 600;
+}
+
+.activity-entry.activity-closed {
+    background: #fde8e8;
+    color: #c0392b;
+}
+
+.activity-entry.activity-open {
+    background: #dff7e6;
+    color: #1c7c3d;
+}
+
+.activity-icon {
+    font-size: 18px;
+}
+
+.activity-label {
+    flex: 1;
+}
+
+.activity-time {
+    font-size: 14px;
+    opacity: .8;
+    font-weight: 500;
+}
+
+.activity-empty {
+    color: #888;
+    font-style: italic;
+}
+
+body.dark-mode .activity-log-card {
+    background: #152a22;
+    color: #eee;
+}
+
+body.dark-mode .activity-entry {
+    background: #1e372d;
+}
+
+body.dark-mode .activity-entry.activity-closed {
+    background: #3a1a17;
+    color: #f3a6a6;
+}
+
+body.dark-mode .activity-entry.activity-open {
+    background: #1e372d;
+    color: #8fe3b8;
+}
+
+body.dark-mode .activity-empty {
+    color: #9db3a8;
+}
+
 /* ===========================
    STAT CARDS
 =========================== */
@@ -265,11 +392,29 @@ header p {
 }
 
 /* ===========================
-   TITLE
+   TITLE & CONTROLS
 =========================== */
 .section-title {
     color: #0B3D2E;
     margin-bottom: 20px;
+}
+
+.view-meeting-btn {
+    padding: 8px 16px;
+    border-radius: 10px;
+    background: #0B3D2E;
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    transition: background 0.2s, transform 0.2s;
+}
+
+.view-meeting-btn:hover {
+    background: #145A44;
+    transform: translateY(-2px);
 }
 
 /* ===========================
@@ -339,6 +484,140 @@ header p {
 }
 
 /* ===========================
+   MEETING DETAILS MODAL
+=========================== */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    padding: 20px;
+}
+
+.modal-content {
+    background: white;
+    width: 100%;
+    max-width: 650px;
+    max-height: 85vh;
+    border-radius: 20px;
+    padding: 30px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+}
+
+.modal-header h2 {
+    color: #0B3D2E;
+    font-size: 24px;
+}
+
+.modal-sub {
+    color: #666;
+    font-size: 14px;
+}
+
+.modal-close-btn {
+    background: transparent;
+    border: none;
+    font-size: 28px;
+    color: #888;
+    cursor: pointer;
+    line-height: 1;
+    transition: color 0.2s;
+}
+
+.modal-close-btn:hover {
+    color: #c0392b;
+}
+
+.modal-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.modal-stat-card {
+    background: #f4f7f5;
+    padding: 15px;
+    border-radius: 12px;
+    text-align: center;
+}
+
+.stat-num {
+    display: block;
+    font-size: 22px;
+    font-weight: 700;
+    color: #0B3D2E;
+}
+
+.stat-lbl {
+    font-size: 13px;
+    color: #666;
+}
+
+.modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+
+.modal-body h3 {
+    font-size: 16px;
+    color: #0B3D2E;
+    margin-bottom: 12px;
+}
+
+.participants-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.participant-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #f8faf9;
+    padding: 12px 16px;
+    border-radius: 12px;
+    border-left: 4px solid #1f8f58;
+}
+
+.participant-info .name {
+    font-weight: 600;
+    color: #222;
+}
+
+.participant-info .church {
+    font-size: 13px;
+    color: #666;
+}
+
+.participant-time {
+    font-size: 12px;
+    background: #eef3f7;
+    padding: 4px 8px;
+    border-radius: 6px;
+    color: #444;
+}
+
+/* ===========================
    SCROLLBAR
 =========================== */
 ::-webkit-scrollbar {
@@ -405,6 +684,46 @@ body.dark-mode .progress {
     background: #2c4a3d;
 }
 
+body.dark-mode .view-meeting-btn {
+    background: #1e372d;
+    border: 1px solid #2c4a3d;
+}
+
+body.dark-mode .view-meeting-btn:hover {
+    background: #254639;
+}
+
+body.dark-mode .modal-content {
+    background: #152a22;
+    color: #eee;
+}
+
+body.dark-mode .modal-header h2,
+body.dark-mode .modal-body h3,
+body.dark-mode .stat-num {
+    color: #8fe3b8;
+}
+
+body.dark-mode .modal-stat-card,
+body.dark-mode .participant-item {
+    background: #1e372d;
+}
+
+body.dark-mode .participant-info .name {
+    color: #eee;
+}
+
+body.dark-mode .participant-info .church,
+body.dark-mode .modal-sub,
+body.dark-mode .stat-lbl {
+    color: #bcd6c9;
+}
+
+body.dark-mode .participant-time {
+    background: #0d1512;
+    color: #8fe3b8;
+}
+
 /* ===========================
    RESPONSIVE DESIGN
 =========================== */
@@ -422,35 +741,5 @@ body.dark-mode .progress {
     .top-buttons button {
         flex: 1;
         min-width: 100px;
-    }
-
-    .meeting-status {
-        flex-direction: column;
-        gap: 20px;
-        text-align: center;
-    }
-
-    .search-box {
-        flex-wrap: wrap;
-    }
-}
-
-@media(max-width: 600px) {
-    .dashboard {
-        width: 96%;
-    }
-
-    .card {
-        flex-direction: column;
-        text-align: center;
-    }
-
-    .card h1 {
-        font-size: 34px;
-    }
-
-    .person-header {
-        flex-direction: column;
-        gap: 10px;
     }
 }
