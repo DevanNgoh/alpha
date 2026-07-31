@@ -2,13 +2,18 @@
 // LOGIN PROTECTION
 // =======================================
 if (sessionStorage.getItem("loggedIn") !== "true") {
-    window.location.replace("index.html");
+    window.location.replace("login.html");
 }
 
 // =======================================
 // GOOGLE APPS SCRIPT URL
 // =======================================
 const scriptURL = "https://script.google.com/macros/s/AKfycbxENWyvJtzuqPeMfAXStAMzk9pYB9qS2HZS_q3gCglp50ddf06ssy1cdkGPqNSaycSL/exec";
+
+// Sentinel "name" used to store meeting open/closed state as a normal
+// row through the existing endpoint (no backend changes needed).
+// It is filtered out of every attendance list, count, search, and export.
+const STATUS_MARKER = "__MEETING_STATUS__";
 
 // =======================================
 // DOM ELEMENTS
@@ -28,15 +33,28 @@ const themeToggle = document.getElementById("themeToggle");
 const todayDate = document.getElementById("todayDate");
 const lastRefresh = document.getElementById("lastRefresh");
 const meetingStatus = document.getElementById("meetingStatus");
+const meetingToggleBtn = document.getElementById("meetingToggleBtn");
 const meetingDateSelect = document.getElementById("meetingDateSelect");
 const attendanceListTitle = document.getElementById("attendanceListTitle");
+const activityLog = document.getElementById("activityLog");
+
+// Modal Elements
+const meetingModal = document.getElementById("meetingModal");
+const closeModalBtn = document.getElementById("closeModalBtn");
+const viewMeetingBtn = document.getElementById("viewMeetingBtn");
+const modalMeetingTitle = document.getElementById("modalMeetingTitle");
+const modalMeetingDate = document.getElementById("modalMeetingDate");
+const modalTotalPresent = document.getElementById("modalTotalPresent");
+const modalParticipantsList = document.getElementById("modalParticipantsList");
 
 // =======================================
 // STATE VARIABLES
 // =======================================
-let allAttendanceData = [];
-let pastors = [];
+let allAttendanceData = [];   // raw rows exactly as returned by the sheet (includes status markers)
+let realAttendance = [];      // rows with status markers filtered out (actual people)
+let pastors = [];              // realAttendance filtered down to the selected meeting date
 let attendanceGoal = parseInt(localStorage.getItem("attendanceGoal") || "30", 10);
+let currentMeetingStatus = "open"; // only meaningful for today
 
 // =======================================
 // HELPER: LOCAL DATE FORMATTER (YYYY-MM-DD)
@@ -51,7 +69,7 @@ function getLocalDateString(d = new Date()) {
 
 function parseToYYYYMMDD(dateVal) {
     if (!dateVal) return "";
-    
+
     // Handle YYYY-MM-DD string directly
     if (typeof dateVal === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dateVal.trim())) {
         return dateVal.trim();
@@ -115,7 +133,7 @@ function loadAttendance() {
         })
         .then(data => {
             console.log("Data received from Apps Script:", data);
-            
+
             if (Array.isArray(data)) {
                 allAttendanceData = data;
             } else if (data && Array.isArray(data.data)) {
@@ -123,6 +141,8 @@ function loadAttendance() {
             } else {
                 allAttendanceData = [];
             }
+
+            realAttendance = allAttendanceData.filter(item => item.name !== STATUS_MARKER);
 
             populateMeetingDates();
             applySearchAndSort();
@@ -147,6 +167,119 @@ function loadAttendance() {
 }
 
 // =======================================
+// MEETING OPEN / CLOSED STATE
+// =======================================
+function getMeetingStatusForToday() {
+    const todayStr = getLocalDateString();
+    const statusEntries = allAttendanceData.filter(item =>
+        item.name === STATUS_MARKER && parseToYYYYMMDD(item.date) === todayStr
+    );
+
+    if (statusEntries.length === 0) return "open";
+
+    const last = statusEntries[statusEntries.length - 1];
+    return (last.church || "").toLowerCase() === "closed" ? "closed" : "open";
+}
+
+function updateMeetingStatusUI(selectedDate) {
+    const todayStr = getLocalDateString();
+    const isToday = selectedDate === todayStr;
+
+    if (isToday) {
+        currentMeetingStatus = getMeetingStatusForToday();
+
+        if (meetingStatus) {
+            meetingStatus.innerHTML = currentMeetingStatus === "open"
+                ? "🟢 Meeting Open"
+                : "🔴 Meeting Closed";
+            meetingStatus.classList.toggle("status-closed", currentMeetingStatus === "closed");
+        }
+
+        if (meetingToggleBtn) {
+            meetingToggleBtn.style.display = "inline-flex";
+            meetingToggleBtn.disabled = false;
+            meetingToggleBtn.innerHTML = currentMeetingStatus === "open"
+                ? '<i class="fa-solid fa-lock"></i> Close Meeting'
+                : '<i class="fa-solid fa-lock-open"></i> Reopen Meeting';
+        }
+
+        if (attendanceListTitle) attendanceListTitle.textContent = "Today's Attendance";
+    } else {
+        if (meetingStatus) {
+            meetingStatus.innerHTML = "🔒 Past Meeting (History)";
+            meetingStatus.classList.remove("status-closed");
+        }
+
+        if (meetingToggleBtn) meetingToggleBtn.style.display = "none";
+
+        if (attendanceListTitle) attendanceListTitle.textContent = `Meeting Attendance (${selectedDate})`;
+    }
+}
+
+// =======================================
+// MEETING ACTIVITY LOG
+// =======================================
+function renderActivityLog(selectedDate) {
+    if (!activityLog) return;
+
+    const entries = allAttendanceData.filter(item =>
+        item.name === STATUS_MARKER && parseToYYYYMMDD(item.date) === selectedDate
+    );
+
+    if (entries.length === 0) {
+        activityLog.innerHTML = `<p class="activity-empty">No open/close activity recorded for this meeting.</p>`;
+        return;
+    }
+
+    let html = "";
+    entries.forEach(entry => {
+        const status = (entry.church || "").toLowerCase() === "closed" ? "closed" : "open";
+        const icon = status === "closed" ? "🔴" : "🟢";
+        const label = status === "closed" ? "Meeting Closed" : "Meeting Reopened";
+        const time = entry.time || "";
+
+        html += `
+        <div class="activity-entry ${status === "closed" ? "activity-closed" : "activity-open"}">
+            <span class="activity-icon">${icon}</span>
+            <span class="activity-label">${label}</span>
+            ${time ? `<span class="activity-time">${time}</span>` : ""}
+        </div>`;
+    });
+
+    activityLog.innerHTML = html;
+}
+
+if (meetingToggleBtn) {
+    meetingToggleBtn.addEventListener("click", () => {
+        const newStatus = currentMeetingStatus === "open" ? "closed" : "open";
+        const verb = newStatus === "closed" ? "close" : "reopen";
+
+        if (!confirm(`Are you sure you want to ${verb} the meeting? This will ${newStatus === "closed" ? "stop" : "allow"} people from checking in.`)) {
+            return;
+        }
+
+        meetingToggleBtn.disabled = true;
+        meetingToggleBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Updating...';
+
+        fetch(scriptURL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify({ name: STATUS_MARKER, church: newStatus })
+        })
+            .then(r => r.json())
+            .then(() => {
+                loadAttendance();
+            })
+            .catch(err => {
+                console.error("Error updating meeting status:", err);
+                alert("Could not update meeting status. Please check your connection and try again.");
+                meetingToggleBtn.disabled = false;
+                updateMeetingStatusUI(meetingDateSelect ? meetingDateSelect.value : getLocalDateString());
+            });
+    });
+}
+
+// =======================================
 // POPULATE MEETING DATES DROPDOWN
 // =======================================
 function populateMeetingDates() {
@@ -155,7 +288,7 @@ function populateMeetingDates() {
     const selectedValue = meetingDateSelect.value;
     const todayStr = getLocalDateString();
 
-    const uniqueDates = [...new Set(allAttendanceData.map(item => parseToYYYYMMDD(item.date)).filter(Boolean))];
+    const uniqueDates = [...new Set(realAttendance.map(item => parseToYYYYMMDD(item.date)).filter(Boolean))];
 
     if (!uniqueDates.includes(todayStr)) {
         uniqueDates.push(todayStr);
@@ -237,19 +370,14 @@ function applySearchAndSort() {
     const todayStr = getLocalDateString();
     const selectedDate = meetingDateSelect ? meetingDateSelect.value : todayStr;
 
-    pastors = allAttendanceData.filter(person => {
+    updateMeetingStatusUI(selectedDate);
+    renderActivityLog(selectedDate);
+
+    pastors = realAttendance.filter(person => {
         const pDate = parseToYYYYMMDD(person.date);
         if (!pDate) return selectedDate === todayStr;
         return pDate === selectedDate;
     });
-
-    if (selectedDate === todayStr) {
-        if (attendanceListTitle) attendanceListTitle.textContent = "Today's Attendance";
-        if (meetingStatus) meetingStatus.innerHTML = "🟢 Meeting Open";
-    } else {
-        if (attendanceListTitle) attendanceListTitle.textContent = `Meeting Attendance (${selectedDate})`;
-        if (meetingStatus) meetingStatus.innerHTML = "🔒 Past Meeting (History)";
-    }
 
     const searchValue = search ? (search.value || "").toLowerCase() : "";
 
@@ -272,6 +400,60 @@ function applySearchAndSort() {
 if (search) search.addEventListener("input", applySearchAndSort);
 if (sortSelect) sortSelect.addEventListener("change", applySearchAndSort);
 if (meetingDateSelect) meetingDateSelect.addEventListener("change", applySearchAndSort);
+
+// =======================================
+// PAST MEETING DETAILS MODAL LOGIC
+// =======================================
+function openMeetingDetails(dateStr) {
+    if (!meetingModal) return;
+
+    const targetDate = dateStr || (meetingDateSelect ? meetingDateSelect.value : getLocalDateString());
+    const attendees = realAttendance.filter(item => parseToYYYYMMDD(item.date) === targetDate);
+
+    if (modalMeetingTitle) modalMeetingTitle.textContent = `Meeting Details (${targetDate})`;
+    if (modalMeetingDate) modalMeetingDate.textContent = targetDate;
+    if (modalTotalPresent) modalTotalPresent.textContent = attendees.length;
+
+    if (!modalParticipantsList) return;
+
+    if (attendees.length === 0) {
+        modalParticipantsList.innerHTML = `<p class="activity-empty">No participants recorded for this meeting date.</p>`;
+    } else {
+        let html = "";
+        attendees.forEach(person => {
+            html += `
+            <div class="participant-item">
+                <div class="participant-info">
+                    <div class="name">${person.name || "Unknown"}</div>
+                    <div class="church">⛪ ${person.church || "Church not provided"}</div>
+                </div>
+                ${person.time ? `<div class="participant-time">🕒 ${person.time}</div>` : ""}
+            </div>`;
+        });
+        modalParticipantsList.innerHTML = html;
+    }
+
+    meetingModal.style.display = "flex";
+}
+
+function closeMeetingModal() {
+    if (meetingModal) meetingModal.style.display = "none";
+}
+
+if (viewMeetingBtn) {
+    viewMeetingBtn.addEventListener("click", () => {
+        const dateStr = meetingDateSelect ? meetingDateSelect.value : getLocalDateString();
+        openMeetingDetails(dateStr);
+    });
+}
+
+if (closeModalBtn) {
+    closeModalBtn.addEventListener("click", closeMeetingModal);
+}
+
+window.addEventListener("click", (e) => {
+    if (e.target === meetingModal) closeMeetingModal();
+});
 
 // =======================================
 // EDITABLE ATTENDANCE GOAL
