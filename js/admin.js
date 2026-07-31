@@ -12,7 +12,8 @@ const scriptURL = "https://script.google.com/macros/s/AKfycbxENWyvJtzuqPeMfAXStA
 
 // Sentinel "name" used to store meeting open/closed state as a normal
 // row through the existing endpoint (no backend changes needed).
-// It is filtered out of every attendance list, count, search, and export.
+// It is filtered out of the attendance list, count, search, and export,
+// but used to build the meeting activity log and session history below.
 const STATUS_MARKER = "__MEETING_STATUS__";
 
 // =======================================
@@ -37,24 +38,22 @@ const meetingToggleBtn = document.getElementById("meetingToggleBtn");
 const meetingDateSelect = document.getElementById("meetingDateSelect");
 const attendanceListTitle = document.getElementById("attendanceListTitle");
 const activityLog = document.getElementById("activityLog");
-
-// Modal Elements
-const meetingModal = document.getElementById("meetingModal");
-const closeModalBtn = document.getElementById("closeModalBtn");
-const viewMeetingBtn = document.getElementById("viewMeetingBtn");
-const modalMeetingTitle = document.getElementById("modalMeetingTitle");
-const modalMeetingDate = document.getElementById("modalMeetingDate");
-const modalTotalPresent = document.getElementById("modalTotalPresent");
-const modalParticipantsList = document.getElementById("modalParticipantsList");
+const clearLogBtn = document.getElementById("clearLogBtn");
 
 // =======================================
 // STATE VARIABLES
 // =======================================
-let allAttendanceData = [];   // raw rows exactly as returned by the sheet (includes status markers)
-let realAttendance = [];      // rows with status markers filtered out (actual people)
-let pastors = [];              // realAttendance filtered down to the selected meeting date
+let allAttendanceData = [];   // raw rows exactly as returned by the sheet
+let augmentedData = [];       // raw rows + __date and __session attached
+let realAttendance = [];      // augmentedData with status marker rows removed (actual people)
+let pastors = [];              // realAttendance filtered down to the selected meeting session
 let attendanceGoal = parseInt(localStorage.getItem("attendanceGoal") || "30", 10);
-let currentMeetingStatus = "open"; // only meaningful for today
+let currentMeetingStatus = "open"; // today's live status only
+
+// Per-date session bookkeeping, rebuilt on every load
+let sessionCounterMap = {};   // date -> highest session number seen so far
+let lastStatusMap = {};       // date -> latest known status ("open"/"closed")
+let sessionExistsMap = {};    // date -> Set of session numbers that have any entry
 
 // =======================================
 // HELPER: LOCAL DATE FORMATTER (YYYY-MM-DD)
@@ -78,6 +77,47 @@ function parseToYYYYMMDD(dateVal) {
     const d = new Date(dateVal);
     if (isNaN(d.getTime())) return String(dateVal).trim();
     return getLocalDateString(d);
+}
+
+// Composite dropdown keys look like "2026-07-30::2" (date + session number)
+function makeSessionKey(date, session) {
+    return `${date}::${session}`;
+}
+
+function parseSessionKey(key) {
+    if (!key) return { date: getLocalDateString(), session: 1 };
+    const [date, sessionStr] = key.split("::");
+    const session = parseInt(sessionStr, 10);
+    return { date, session: isNaN(session) ? 1 : session };
+}
+
+// =======================================
+// HIDDEN ACTIVITY LOGS (per-browser, reversible)
+// "Clear Log" doesn't delete anything from the sheet — it just hides that
+// meeting's open/close entries from view on this device. Toggling it back
+// restores the exact same history.
+// =======================================
+function getHiddenLogs() {
+    try {
+        return JSON.parse(localStorage.getItem("hiddenActivityLogs") || "[]");
+    } catch (e) {
+        return [];
+    }
+}
+
+function setHiddenLogs(list) {
+    localStorage.setItem("hiddenActivityLogs", JSON.stringify(list));
+}
+
+function isLogHidden(date, session) {
+    return getHiddenLogs().includes(makeSessionKey(date, session));
+}
+
+function setLogHidden(date, session, hidden) {
+    const key = makeSessionKey(date, session);
+    const hiddenLogs = getHiddenLogs().filter(k => k !== key);
+    if (hidden) hiddenLogs.push(key);
+    setHiddenLogs(hiddenLogs);
 }
 
 // =======================================
@@ -142,9 +182,8 @@ function loadAttendance() {
                 allAttendanceData = [];
             }
 
-            realAttendance = allAttendanceData.filter(item => item.name !== STATUS_MARKER);
-
-            populateMeetingDates();
+            buildSessionData();
+            populateMeetingSessions();
             applySearchAndSort();
             updateRefreshTime();
 
@@ -167,25 +206,66 @@ function loadAttendance() {
 }
 
 // =======================================
-// MEETING OPEN / CLOSED STATE
+// BUILD MEETING SESSIONS
+// =======================================
+// Walks every row in the order the sheet returned it (chronological) and
+// assigns each one a __date and __session number. A new session begins
+// each time the admin clicks "Reopen" after having closed the meeting, so
+// two separate meetings on the same calendar day are kept fully distinct
+// and are each permanently viewable in the dropdown below.
+function buildSessionData() {
+    sessionCounterMap = {};
+    lastStatusMap = {};
+    sessionExistsMap = {};
+    augmentedData = [];
+
+    allAttendanceData.forEach(item => {
+        const date = parseToYYYYMMDD(item.date);
+        if (!date) return;
+
+        if (!(date in sessionCounterMap)) {
+            sessionCounterMap[date] = 1;
+            lastStatusMap[date] = "open";
+            sessionExistsMap[date] = new Set();
+        }
+
+        if (item.name === STATUS_MARKER) {
+            const status = (item.church || "").toLowerCase() === "closed" ? "closed" : "open";
+
+            if (status === "open" && lastStatusMap[date] === "closed") {
+                // A reopen after a close starts a brand-new session
+                sessionCounterMap[date] += 1;
+            }
+
+            lastStatusMap[date] = status;
+        }
+
+        const session = sessionCounterMap[date];
+        sessionExistsMap[date].add(session);
+        augmentedData.push({ ...item, __date: date, __session: session });
+    });
+
+    realAttendance = augmentedData.filter(item => item.name !== STATUS_MARKER);
+}
+
+// =======================================
+// MEETING OPEN / CLOSED STATE (today, live)
 // =======================================
 function getMeetingStatusForToday() {
     const todayStr = getLocalDateString();
-    const statusEntries = allAttendanceData.filter(item =>
-        item.name === STATUS_MARKER && parseToYYYYMMDD(item.date) === todayStr
-    );
-
-    if (statusEntries.length === 0) return "open";
-
-    const last = statusEntries[statusEntries.length - 1];
-    return (last.church || "").toLowerCase() === "closed" ? "closed" : "open";
+    return lastStatusMap[todayStr] || "open";
 }
 
-function updateMeetingStatusUI(selectedDate) {
+function getLiveSessionForToday() {
     const todayStr = getLocalDateString();
-    const isToday = selectedDate === todayStr;
+    return sessionCounterMap[todayStr] || 1;
+}
 
-    if (isToday) {
+function updateMeetingStatusUI(date, session) {
+    const todayStr = getLocalDateString();
+    const isLiveSession = date === todayStr && session === getLiveSessionForToday();
+
+    if (isLiveSession) {
         currentMeetingStatus = getMeetingStatusForToday();
 
         if (meetingStatus) {
@@ -212,18 +292,32 @@ function updateMeetingStatusUI(selectedDate) {
 
         if (meetingToggleBtn) meetingToggleBtn.style.display = "none";
 
-        if (attendanceListTitle) attendanceListTitle.textContent = `Meeting Attendance (${selectedDate})`;
+        const totalSessions = sessionExistsMap[date] ? sessionExistsMap[date].size : 1;
+        const label = totalSessions > 1 ? `${date}, Session ${session}` : date;
+        if (attendanceListTitle) attendanceListTitle.textContent = `Meeting Attendance (${label})`;
     }
 }
 
 // =======================================
-// MEETING ACTIVITY LOG
+// MEETING ACTIVITY LOG (close/reopen history)
+// Shows every __MEETING_STATUS__ entry that belongs to the selected
+// session, in the order it was recorded. Works for today and any past
+// date/session, so this history is never lost from the sheet — "Clear
+// Log" below only hides it from view on this browser.
 // =======================================
-function renderActivityLog(selectedDate) {
+function renderActivityLog(date, session) {
     if (!activityLog) return;
 
-    const entries = allAttendanceData.filter(item =>
-        item.name === STATUS_MARKER && parseToYYYYMMDD(item.date) === selectedDate
+    const hidden = isLogHidden(date, session);
+    updateClearLogButton(hidden);
+
+    if (hidden) {
+        activityLog.innerHTML = `<p class="activity-empty">Log cleared for this meeting on this device. Click "Restore Log" to bring it back.</p>`;
+        return;
+    }
+
+    const entries = augmentedData.filter(item =>
+        item.name === STATUS_MARKER && item.__date === date && item.__session === session
     );
 
     if (entries.length === 0) {
@@ -249,12 +343,34 @@ function renderActivityLog(selectedDate) {
     activityLog.innerHTML = html;
 }
 
+function updateClearLogButton(hidden) {
+    if (!clearLogBtn) return;
+    clearLogBtn.classList.toggle("log-hidden", hidden);
+    clearLogBtn.innerHTML = hidden
+        ? '<i class="fa-solid fa-eye"></i> Restore Log'
+        : '<i class="fa-solid fa-eye-slash"></i> Clear Log';
+}
+
+if (clearLogBtn) {
+    clearLogBtn.addEventListener("click", () => {
+        const key = meetingDateSelect ? meetingDateSelect.value : makeSessionKey(getLocalDateString(), 1);
+        const { date, session } = parseSessionKey(key);
+        const currentlyHidden = isLogHidden(date, session);
+
+        setLogHidden(date, session, !currentlyHidden);
+        renderActivityLog(date, session);
+    });
+}
+
 if (meetingToggleBtn) {
     meetingToggleBtn.addEventListener("click", () => {
         const newStatus = currentMeetingStatus === "open" ? "closed" : "open";
         const verb = newStatus === "closed" ? "close" : "reopen";
+        const explanation = newStatus === "closed"
+            ? "This will stop people from checking in until you reopen."
+            : "This starts a brand-new meeting for today, kept separate from the one you just closed.";
 
-        if (!confirm(`Are you sure you want to ${verb} the meeting? This will ${newStatus === "closed" ? "stop" : "allow"} people from checking in.`)) {
+        if (!confirm(`Are you sure you want to ${verb} the meeting? ${explanation}`)) {
             return;
         }
 
@@ -274,40 +390,73 @@ if (meetingToggleBtn) {
                 console.error("Error updating meeting status:", err);
                 alert("Could not update meeting status. Please check your connection and try again.");
                 meetingToggleBtn.disabled = false;
-                updateMeetingStatusUI(meetingDateSelect ? meetingDateSelect.value : getLocalDateString());
+                const { date, session } = parseSessionKey(meetingDateSelect ? meetingDateSelect.value : "");
+                updateMeetingStatusUI(date, session);
             });
     });
 }
 
 // =======================================
-// POPULATE MEETING DATES DROPDOWN
+// POPULATE MEETING / SESSION DROPDOWN
 // =======================================
-function populateMeetingDates() {
+function populateMeetingSessions() {
     if (!meetingDateSelect) return;
 
     const selectedValue = meetingDateSelect.value;
     const todayStr = getLocalDateString();
 
-    const uniqueDates = [...new Set(realAttendance.map(item => parseToYYYYMMDD(item.date)).filter(Boolean))];
-
-    if (!uniqueDates.includes(todayStr)) {
-        uniqueDates.push(todayStr);
+    // Make sure today's live session always exists, even with zero attendees
+    if (!(todayStr in sessionCounterMap)) {
+        sessionCounterMap[todayStr] = 1;
+        lastStatusMap[todayStr] = "open";
+        sessionExistsMap[todayStr] = new Set([1]);
     }
 
-    uniqueDates.sort((a, b) => new Date(b) - new Date(a));
+    // Build a flat list of {date, session} across every date we know about
+    const rows = [];
+    Object.keys(sessionExistsMap).forEach(date => {
+        sessionExistsMap[date].forEach(session => {
+            rows.push({ date, session });
+        });
+    });
+
+    // Most recent date first, and within a date, most recent session first
+    rows.sort((a, b) => {
+        if (a.date !== b.date) return new Date(b.date) - new Date(a.date);
+        return b.session - a.session;
+    });
+
     meetingDateSelect.innerHTML = "";
 
-    uniqueDates.forEach(dateStr => {
+    rows.forEach(({ date, session }) => {
         const option = document.createElement("option");
-        option.value = dateStr;
-        option.textContent = dateStr === todayStr ? `Today (${dateStr}) - Live` : dateStr;
+        const key = makeSessionKey(date, session);
+        option.value = key;
+
+        const isToday = date === todayStr;
+        const isLiveSession = isToday && session === sessionCounterMap[todayStr];
+        const totalSessions = sessionExistsMap[date].size;
+
+        let label;
+        if (isLiveSession) {
+            label = totalSessions > 1 ? `Today - Session ${session} (Live)` : `Today (${date}) - Live`;
+        } else if (isToday) {
+            label = `Today - Session ${session}`;
+        } else {
+            label = totalSessions > 1 ? `${date} - Session ${session}` : date;
+        }
+
+        option.textContent = label;
         meetingDateSelect.appendChild(option);
     });
 
-    if (selectedValue && uniqueDates.includes(selectedValue)) {
+    const liveKey = makeSessionKey(todayStr, sessionCounterMap[todayStr]);
+    const availableKeys = rows.map(r => makeSessionKey(r.date, r.session));
+
+    if (selectedValue && availableKeys.includes(selectedValue)) {
         meetingDateSelect.value = selectedValue;
     } else {
-        meetingDateSelect.value = todayStr;
+        meetingDateSelect.value = liveKey;
     }
 }
 
@@ -367,17 +516,13 @@ function displayPastors(list, isFiltered) {
 // FILTER, SEARCH & SORT
 // =======================================
 function applySearchAndSort() {
-    const todayStr = getLocalDateString();
-    const selectedDate = meetingDateSelect ? meetingDateSelect.value : todayStr;
+    const key = meetingDateSelect ? meetingDateSelect.value : makeSessionKey(getLocalDateString(), 1);
+    const { date, session } = parseSessionKey(key);
 
-    updateMeetingStatusUI(selectedDate);
-    renderActivityLog(selectedDate);
+    updateMeetingStatusUI(date, session);
+    renderActivityLog(date, session);
 
-    pastors = realAttendance.filter(person => {
-        const pDate = parseToYYYYMMDD(person.date);
-        if (!pDate) return selectedDate === todayStr;
-        return pDate === selectedDate;
-    });
+    pastors = realAttendance.filter(person => person.__date === date && person.__session === session);
 
     const searchValue = search ? (search.value || "").toLowerCase() : "";
 
@@ -400,60 +545,6 @@ function applySearchAndSort() {
 if (search) search.addEventListener("input", applySearchAndSort);
 if (sortSelect) sortSelect.addEventListener("change", applySearchAndSort);
 if (meetingDateSelect) meetingDateSelect.addEventListener("change", applySearchAndSort);
-
-// =======================================
-// PAST MEETING DETAILS MODAL LOGIC
-// =======================================
-function openMeetingDetails(dateStr) {
-    if (!meetingModal) return;
-
-    const targetDate = dateStr || (meetingDateSelect ? meetingDateSelect.value : getLocalDateString());
-    const attendees = realAttendance.filter(item => parseToYYYYMMDD(item.date) === targetDate);
-
-    if (modalMeetingTitle) modalMeetingTitle.textContent = `Meeting Details (${targetDate})`;
-    if (modalMeetingDate) modalMeetingDate.textContent = targetDate;
-    if (modalTotalPresent) modalTotalPresent.textContent = attendees.length;
-
-    if (!modalParticipantsList) return;
-
-    if (attendees.length === 0) {
-        modalParticipantsList.innerHTML = `<p class="activity-empty">No participants recorded for this meeting date.</p>`;
-    } else {
-        let html = "";
-        attendees.forEach(person => {
-            html += `
-            <div class="participant-item">
-                <div class="participant-info">
-                    <div class="name">${person.name || "Unknown"}</div>
-                    <div class="church">⛪ ${person.church || "Church not provided"}</div>
-                </div>
-                ${person.time ? `<div class="participant-time">🕒 ${person.time}</div>` : ""}
-            </div>`;
-        });
-        modalParticipantsList.innerHTML = html;
-    }
-
-    meetingModal.style.display = "flex";
-}
-
-function closeMeetingModal() {
-    if (meetingModal) meetingModal.style.display = "none";
-}
-
-if (viewMeetingBtn) {
-    viewMeetingBtn.addEventListener("click", () => {
-        const dateStr = meetingDateSelect ? meetingDateSelect.value : getLocalDateString();
-        openMeetingDetails(dateStr);
-    });
-}
-
-if (closeModalBtn) {
-    closeModalBtn.addEventListener("click", closeMeetingModal);
-}
-
-window.addEventListener("click", (e) => {
-    if (e.target === meetingModal) closeMeetingModal();
-});
 
 // =======================================
 // EDITABLE ATTENDANCE GOAL
@@ -489,11 +580,14 @@ function exportCSV() {
 
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-    const selectedDate = meetingDateSelect ? meetingDateSelect.value : getLocalDateString();
+    const key = meetingDateSelect ? meetingDateSelect.value : makeSessionKey(getLocalDateString(), 1);
+    const { date, session } = parseSessionKey(key);
+    const totalSessions = sessionExistsMap[date] ? sessionExistsMap[date].size : 1;
+    const filenameSuffix = totalSessions > 1 ? `${date}_session${session}` : date;
 
     const link = document.createElement("a");
     link.href = url;
-    link.download = `attendance-${selectedDate}.csv`;
+    link.download = `attendance-${filenameSuffix}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
