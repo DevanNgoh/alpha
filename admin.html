@@ -50,9 +50,20 @@
             <h2>Today's Meeting</h2>
             <p>Wednesday Pastors Fellowship</p>
         </div>
-        <div class="status" id="meetingStatus">
-            🟢 Meeting Open
+        <div class="meeting-right">
+            <div class="status" id="meetingStatus">
+                🟢 Meeting Open
+            </div>
+            <button id="meetingToggleBtn" class="toggle-meeting-btn" title="Open or close today's meeting">
+                <i class="fa-solid fa-lock"></i> Close Meeting
+            </button>
         </div>
+    </section>
+
+    <!-- Meeting Activity Log -->
+    <section class="activity-log-card">
+        <h2 class="section-title" style="margin-bottom: 15px;">📋 Meeting Activity Log</h2>
+        <div id="activityLog" class="activity-log"></div>
     </section>
 
     <!-- Statistics -->
@@ -111,16 +122,50 @@
                 Today's Attendance
             </h2>
             
-            <div>
-                <label for="meetingDateSelect" style="font-weight: 600; margin-right: 8px;">📅 View Meeting:</label>
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <label for="meetingDateSelect" style="font-weight: 600;">📅 View Meeting:</label>
                 <select id="meetingDateSelect" style="padding: 8px 12px; border-radius: 10px; border: 2px solid #ddd; font-family: inherit;">
                     <option value="">Loading dates...</option>
                 </select>
+                <button id="viewMeetingBtn" class="view-meeting-btn" title="View participants for selected meeting">
+                    <i class="fa-solid fa-users"></i> View Meeting
+                </button>
             </div>
         </div>
 
         <div id="attendanceList"></div>
     </section>
+
+    <!-- Past Meeting Details Modal -->
+    <div id="meetingModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h2 id="modalMeetingTitle">Meeting Details</h2>
+                    <p id="modalMeetingSub" class="modal-sub">Participant Breakdown</p>
+                </div>
+                <button id="closeModalBtn" class="modal-close-btn">&times;</button>
+            </div>
+
+            <div class="modal-stats">
+                <div class="modal-stat-card">
+                    <span class="stat-num" id="modalTotalPresent">0</span>
+                    <span class="stat-lbl">Attendees</span>
+                </div>
+                <div class="modal-stat-card">
+                    <span class="stat-num" id="modalMeetingDate">--</span>
+                    <span class="stat-lbl">Date</span>
+                </div>
+            </div>
+
+            <div class="modal-body">
+                <h3>👥 Participants List</h3>
+                <div id="modalParticipantsList" class="participants-list">
+                    <!-- Dynamically populated -->
+                </div>
+            </div>
+        </div>
+    </div>
 
 </div>
 
