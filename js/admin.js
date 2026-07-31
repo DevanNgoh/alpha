@@ -2,7 +2,7 @@
 // LOGIN PROTECTION
 // =======================================
 if (sessionStorage.getItem("loggedIn") !== "true") {
-    window.location.replace("login.html");
+    window.location.replace("index.html");
 }
 
 // =======================================
