@@ -158,6 +158,14 @@ header p {
     transition: .3s;
 }
 
+.toggle-meeting-btn.btn-open {
+    background: #1f8f58;
+}
+
+.toggle-meeting-btn.btn-open:hover {
+    background: #167746;
+}
+
 .toggle-meeting-btn:hover {
     background: #a92e21;
     transform: translateY(-2px);
@@ -171,6 +179,10 @@ header p {
 
 body.dark-mode .toggle-meeting-btn {
     background: #a92e21;
+}
+
+body.dark-mode .toggle-meeting-btn.btn-open {
+    background: #1f8f58;
 }
 
 body.dark-mode .toggle-meeting-btn:hover {
@@ -241,7 +253,8 @@ body.dark-mode .clear-log-btn:hover {
     gap: 10px;
 }
 
-.activity-entry {
+.activity-entry,
+.log-item {
     display: flex;
     align-items: center;
     gap: 12px;
@@ -251,12 +264,14 @@ body.dark-mode .clear-log-btn:hover {
     font-weight: 600;
 }
 
-.activity-entry.activity-closed {
+.activity-entry.activity-closed,
+.log-badge-closed {
     background: #fde8e8;
     color: #c0392b;
 }
 
-.activity-entry.activity-open {
+.activity-entry.activity-open,
+.log-badge-open {
     background: #dff7e6;
     color: #1c7c3d;
 }
@@ -265,11 +280,13 @@ body.dark-mode .clear-log-btn:hover {
     font-size: 18px;
 }
 
-.activity-label {
+.activity-label,
+.log-desc {
     flex: 1;
 }
 
-.activity-time {
+.activity-time,
+.log-time {
     font-size: 14px;
     opacity: .8;
     font-weight: 500;
@@ -285,16 +302,19 @@ body.dark-mode .activity-log-card {
     color: #eee;
 }
 
-body.dark-mode .activity-entry {
+body.dark-mode .activity-entry,
+body.dark-mode .log-item {
     background: #1e372d;
 }
 
-body.dark-mode .activity-entry.activity-closed {
+body.dark-mode .activity-entry.activity-closed,
+body.dark-mode .log-badge-closed {
     background: #3a1a17;
     color: #f3a6a6;
 }
 
-body.dark-mode .activity-entry.activity-open {
+body.dark-mode .activity-entry.activity-open,
+body.dark-mode .log-badge-open {
     background: #1e372d;
     color: #8fe3b8;
 }
@@ -407,6 +427,7 @@ body.dark-mode .activity-empty {
     gap: 15px;
     margin-bottom: 30px;
     box-shadow: 0 10px 25px rgba(0, 0, 0, .07);
+    flex-wrap: wrap;
 }
 
 .search-box i {
@@ -414,7 +435,8 @@ body.dark-mode .activity-empty {
 }
 
 .search-box input {
-    flex: 1;
+    flex: 2;
+    min-width: 200px;
     border: none;
     outline: none;
     font-size: 17px;
@@ -422,7 +444,9 @@ body.dark-mode .activity-empty {
     color: inherit;
 }
 
-#sortSelect {
+#sortSelect,
+#countryFilterSelect,
+#meetingDateSelect {
     border: 2px solid #ddd;
     border-radius: 10px;
     padding: 10px 14px;
@@ -431,6 +455,16 @@ body.dark-mode .activity-empty {
     background: white;
     color: #333;
     cursor: pointer;
+    flex: 1;
+    min-width: 150px;
+    outline: none;
+    transition: border-color .3s;
+}
+
+#sortSelect:focus,
+#countryFilterSelect:focus,
+#meetingDateSelect:focus {
+    border-color: #0B3D2E;
 }
 
 /* ===========================
@@ -486,17 +520,45 @@ body.dark-mode .activity-empty {
 
 .person-info {
     flex: 1;
+    overflow: hidden;
 }
 
 .person-name {
     font-size: 22px;
     font-weight: 600;
     color: #0B3D2E;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .person-church {
     margin-top: 6px;
     color: #666;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.person-country {
+    font-size: 13px;
+    color: #888;
+    margin-top: 4px;
+}
+
+.delete-btn {
+    background: transparent;
+    border: none;
+    color: #c0392b;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 8px;
+    transition: .2s;
+}
+
+.delete-btn:hover {
+    background: rgba(192, 57, 43, 0.1);
 }
 
 .status-badge {
@@ -504,6 +566,83 @@ body.dark-mode .activity-empty {
     color: #1c7c3d;
     padding: 10px 18px;
     border-radius: 40px;
+    font-weight: 600;
+}
+
+/* ===========================
+   MODAL
+=========================== */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, .5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: white;
+    padding: 30px;
+    border-radius: 20px;
+    width: 400px;
+    max-width: 90%;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, .2);
+}
+
+.input-group {
+    margin-bottom: 15px;
+}
+
+.input-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 5px;
+    color: #0B3D2E;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: 2px solid #ddd;
+    outline: none;
+}
+
+.input-group input:focus {
+    border-color: #0B3D2E;
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.btn-save {
+    background: #0B3D2E;
+    color: white;
+    padding: 12px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    flex: 1;
+    font-weight: 600;
+}
+
+.btn-cancel {
+    background: #888;
+    color: white;
+    padding: 12px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    flex: 1;
     font-weight: 600;
 }
 
@@ -531,7 +670,8 @@ body.dark-mode .meeting-status,
 body.dark-mode .card,
 body.dark-mode .progress-card,
 body.dark-mode .search-box,
-body.dark-mode .person {
+body.dark-mode .person,
+body.dark-mode .modal-content {
     background: #152a22;
     color: #eee;
 }
@@ -539,7 +679,8 @@ body.dark-mode .person {
 body.dark-mode .meeting-left h2,
 body.dark-mode .card h1,
 body.dark-mode .section-title,
-body.dark-mode .person-name {
+body.dark-mode .person-name,
+body.dark-mode .input-group label {
     color: #8fe3b8;
 }
 
@@ -551,8 +692,14 @@ body.dark-mode .person-church {
     color: #bcd6c9;
 }
 
-body.dark-mode .search-box input {
+body.dark-mode .person-country {
+    color: #9db3a8;
+}
+
+body.dark-mode .search-box input,
+body.dark-mode .input-group input {
     color: #eee;
+    background: #1e372d;
 }
 
 body.dark-mode .search-box input::placeholder {
@@ -560,7 +707,9 @@ body.dark-mode .search-box input::placeholder {
 }
 
 body.dark-mode #sortSelect,
-body.dark-mode #meetingDateSelect {
+body.dark-mode #countryFilterSelect,
+body.dark-mode #meetingDateSelect,
+body.dark-mode .input-group input {
     background: #1e372d;
     border-color: #2c4a3d;
     color: #eee;
@@ -621,5 +770,27 @@ body.dark-mode .progress {
     .person-header {
         flex-direction: column;
         gap: 10px;
+    }
+}
+
+/* ===========================
+   PRINT MODE
+=========================== */
+@media print {
+    header, .top-buttons, .search-box, .activity-log-card, .progress-card, .delete-btn, #editGoalBtn, #themeToggle, #meetingDateSelect {
+        display: none !important;
+    }
+    body {
+        background: white !important;
+        color: black !important;
+    }
+    .dashboard {
+        width: 100% !important;
+        margin: 0 !important;
+    }
+    .person {
+        box-shadow: none !important;
+        border: 1px solid #ccc !important;
+        page-break-inside: avoid;
     }
 }
