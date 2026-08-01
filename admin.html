@@ -5,7 +5,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pastors Fellowship Dashboard</title>
-
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9C%9D%3C/text%3E%3C/svg%3E">
     <link rel="stylesheet" href="css/admin.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -29,17 +28,20 @@
             <button id="themeToggle" title="Toggle dark mode">
                 <i class="fa-solid fa-moon"></i>
             </button>
+            <button id="addPastorBtn" style="background:#8e44ad;">
+                <i class="fa-solid fa-user-plus"></i> Add Pastor
+            </button>
+            <button id="printBtn" style="background:#7f8c8d;">
+                <i class="fa-solid fa-print"></i> Print
+            </button>
             <button id="exportBtn">
-                <i class="fa-solid fa-file-csv"></i>
-                Export
+                <i class="fa-solid fa-file-csv"></i> Export
             </button>
             <button id="refreshBtn">
-                <i class="fa-solid fa-rotate-right"></i>
-                Refresh
+                <i class="fa-solid fa-rotate-right"></i> Refresh
             </button>
             <button id="logoutBtn">
-                <i class="fa-solid fa-right-from-bracket"></i>
-                Logout
+                <i class="fa-solid fa-right-from-bracket"></i> Logout
             </button>
         </div>
     </header>
@@ -51,9 +53,7 @@
             <p>Wednesday Pastors Fellowship</p>
         </div>
         <div class="meeting-right">
-            <div class="status" id="meetingStatus">
-                🟢 Meeting Open
-            </div>
+            <div class="status" id="meetingStatus">🟢 Meeting Open</div>
             <button id="meetingToggleBtn" class="toggle-meeting-btn" title="Open or close today's meeting">
                 <i class="fa-solid fa-lock"></i> Close Meeting
             </button>
@@ -64,14 +64,14 @@
     <section class="activity-log-card">
         <div class="activity-log-header">
             <h2 class="section-title" style="margin-bottom: 0;">📋 Meeting Activity Log</h2>
-            <button id="clearLogBtn" class="clear-log-btn" title="Hide the open/close log for this meeting">
+            <button id="clearLogBtn" class="clear-log-btn" title="Hide open/close log for this meeting">
                 <i class="fa-solid fa-eye-slash"></i> Clear Log
             </button>
         </div>
         <div id="activityLog" class="activity-log"></div>
     </section>
 
-    <!-- Statistics -->
+    <!-- Analytics & Statistics -->
     <section class="stats">
         <div class="card">
             <div class="icon">👥</div>
@@ -82,18 +82,26 @@
         </div>
 
         <div class="card">
-            <div class="icon">📈</div>
+            <div class="icon">⛪</div>
             <div>
-                <h3>Progress</h3>
-                <h1 id="percent">0%</h1>
+                <h3>Churches</h3>
+                <h1 id="churchCount">0</h1>
             </div>
         </div>
 
         <div class="card">
-            <div class="icon">⏰</div>
+            <div class="icon">🌍</div>
             <div>
-                <h3>Last Refresh</h3>
-                <h1 id="lastRefresh">--:--</h1>
+                <h3>Countries</h3>
+                <h1 id="countryCount">0</h1>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="icon">📈</div>
+            <div>
+                <h3>Progress</h3>
+                <h1 id="percent">0%</h1>
             </div>
         </div>
     </section>
@@ -112,21 +120,22 @@
     <!-- Search & Filter Controls -->
     <section class="search-box">
         <i class="fa-solid fa-magnifying-glass"></i>
-        <input type="text" id="search" placeholder="Search pastors or churches...">
+        <input type="text" id="search" placeholder="Search pastors, churches, or countries...">
+        <select id="countryFilterSelect">
+            <option value="">All Countries</option>
+        </select>
         <select id="sortSelect" title="Sort attendance">
             <option value="recent">Most Recent</option>
             <option value="name">Name (A-Z)</option>
             <option value="church">Church (A-Z)</option>
+            <option value="country">Country (A-Z)</option>
         </select>
     </section>
 
     <!-- Attendance History & List -->
     <section>
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
-            <h2 class="section-title" id="attendanceListTitle" style="margin-bottom: 0;">
-                Today's Attendance
-            </h2>
-            
+            <h2 class="section-title" id="attendanceListTitle" style="margin-bottom: 0;">Today's Attendance</h2>
             <div>
                 <label for="meetingDateSelect" style="font-weight: 600; margin-right: 8px;">📅 View Meeting:</label>
                 <select id="meetingDateSelect" style="padding: 8px 12px; border-radius: 10px; border: 2px solid #ddd; font-family: inherit;">
@@ -138,6 +147,31 @@
         <div id="attendanceList"></div>
     </section>
 
+</div>
+
+<!-- Manual Entry Modal -->
+<div id="addPastorModal" class="modal" style="display:none;">
+    <div class="modal-content">
+        <h2>➕ Add Pastor Manually</h2>
+        <form id="addPastorForm">
+            <div class="input-group">
+                <label>Full Name</label>
+                <input type="text" id="manualName" required>
+            </div>
+            <div class="input-group">
+                <label>Church / Ministry</label>
+                <input type="text" id="manualChurch">
+            </div>
+            <div class="input-group">
+                <label>Country</label>
+                <input type="text" id="manualCountry" required>
+            </div>
+            <div class="modal-buttons">
+                <button type="submit" class="btn-save">Save Entry</button>
+                <button type="button" id="closeModalBtn" class="btn-cancel">Cancel</button>
+            </div>
+        </form>
+    </div>
 </div>
 
 <script src="js/admin.js"></script>
