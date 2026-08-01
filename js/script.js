@@ -1,29 +1,24 @@
-const scriptURL = "https://script.google.com/macros/s/AKfycbxENWyvJtzuqPeMfAXStAMzk9pYB9qS2HZS_q3gCglp50ddf06ssy1cdkGPqNSaycSL/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbwX8xURGjPH-ZDhVAKWWG0dZxLJ-a4ofQVyZF-CJOGJq0_XdsXYtrJKe_GkXnE4_aTK/exec";
 
 const form = document.getElementById("attendanceForm");
 const button = document.getElementById("submitBtn");
 const message = document.getElementById("message");
 const greeting = document.getElementById("greeting");
 
-// Greeting
 const hour = new Date().getHours();
-
-if(hour < 12){
+if (hour < 12) {
     greeting.innerHTML = "🌅 Good Morning!";
-} else if(hour < 18){
+} else if (hour < 18) {
     greeting.innerHTML = "☀️ Good Afternoon!";
 } else {
     greeting.innerHTML = "🌙 Good Evening!";
 }
 
-// Pre-fill church name if previously saved
+// Pre-fill church & country if previously saved
 window.onload = () => {
     document.getElementById("church").value = localStorage.getItem("church") || "";
+    document.getElementById("country").value = localStorage.getItem("country") || "";
 };
-
-// =======================================
-// CONFETTI CELEBRATION
-// =======================================
 
 function launchConfetti() {
     const container = document.getElementById("confetti-container");
@@ -46,7 +41,6 @@ function launchConfetti() {
     }
 }
 
-// Reset the form view so another person can check in
 function resetFormForNextPerson() {
     form.style.display = "block";
     message.innerHTML = "";
@@ -57,14 +51,15 @@ function resetFormForNextPerson() {
 }
 
 form.addEventListener("submit", (e) => {
-
     e.preventDefault();
 
     const nameInput = document.getElementById("name");
     const churchInput = document.getElementById("church");
+    const countryInput = document.getElementById("country");
 
     const name = nameInput.value.trim();
     const church = churchInput.value.trim();
+    const country = countryInput.value.trim();
 
     if (!name) {
         message.innerHTML = "Please enter your name.";
@@ -75,60 +70,35 @@ form.addEventListener("submit", (e) => {
     button.innerHTML = "Submitting...";
 
     fetch(scriptURL, {
-
         method: "POST",
-
-        headers: {
-            "Content-Type": "text/plain;charset=utf-8"
-        },
-
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify({
+            action: "checkIn",
             name: name,
-            church: church
+            church: church,
+            country: country
         })
-
     })
-
     .then(r => r.json())
-
     .then(() => {
-
-        if (church) {
-            localStorage.setItem("church", church);
-        }
+        if (church) localStorage.setItem("church", church);
+        if (country) localStorage.setItem("country", country);
 
         form.style.display = "none";
-
         message.innerHTML = `
         <div style="font-size:65px;">✅</div>
-
         <h2>Attendance Recorded</h2>
-
-        <p>
-        Thank you, <strong>${name}</strong>!
-        <br><br>
-        Have a blessed fellowship today.
-        </p>
-
+        <p>Thank you, <strong>${name}</strong>!<br><br>Have a blessed fellowship today.</p>
         <button type="button" onclick="resetFormForNextPerson()" style="margin-top:20px; padding:12px 20px; background:#0B3D2E; color:white; border:none; border-radius:10px; cursor:pointer; font-weight:600;">
             ➕ Check In Another Person
         </button>
         `;
-
         launchConfetti();
-
     })
-
     .catch((err) => {
-
         console.error("Submission error:", err);
-
         button.disabled = false;
-
         button.innerHTML = "Record Attendance";
-
         message.innerHTML = "Something went wrong. Please check your connection and try again.";
-
     });
-
 });
