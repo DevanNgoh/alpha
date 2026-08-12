@@ -31,7 +31,6 @@ const todayDate = document.getElementById("todayDate");
 const meetingStatus = document.getElementById("meetingStatus");
 const meetingToggleBtn = document.getElementById("meetingToggleBtn");
 const meetingDateSelect = document.getElementById("meetingDateSelect");
-const attendanceListTitle = document.getElementById("attendanceListTitle");
 const activityLog = document.getElementById("activityLog");
 const clearLogBtn = document.getElementById("clearLogBtn");
 
@@ -41,7 +40,7 @@ let augmentedData = [];
 let realAttendance = [];
 let pastors = [];
 let attendanceGoal = parseInt(localStorage.getItem("attendanceGoal") || "30", 10);
-let currentMeetingStatus = "closed"; // Default to closed
+let currentMeetingStatus = "closed";
 
 let sessionCounterMap = {};
 let lastStatusMap = {};
@@ -56,11 +55,17 @@ function getLocalDateString(d = new Date()) {
 
 function parseToYYYYMMDD(dateVal) {
     if (!dateVal) return "";
-    if (typeof dateVal === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dateVal.trim())) {
-        return dateVal.trim();
+    const str = String(dateVal).trim();
+    // Regex match to prevent UTC offset day shifts
+    const match = str.match(/(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+    if (match) {
+        const y = match[1];
+        const m = match[2].padStart(2, '0');
+        const d = match[3].padStart(2, '0');
+        return `${y}-${m}-${d}`;
     }
-    const d = new Date(dateVal);
-    if (isNaN(d.getTime())) return String(dateVal).trim();
+    const d = new Date(str);
+    if (isNaN(d.getTime())) return str;
     return getLocalDateString(d);
 }
 
@@ -71,7 +76,7 @@ function makeSessionKey(date, session) {
 function parseSessionKey(key) {
     if (!key) return { date: getLocalDateString(), session: 1 };
     const [date, sessionStr] = key.split("::");
-    return { date, session: parseInt(sessionStr, 10) || 1 };
+    return { date: date || getLocalDateString(), session: parseInt(sessionStr, 10) || 1 };
 }
 
 function applyAdminTheme(theme) {
@@ -142,14 +147,19 @@ function buildSessionData() {
 
         if (!(date in sessionCounterMap)) {
             sessionCounterMap[date] = 1;
-            lastStatusMap[date] = "closed"; // Default to closed for new dates
+            lastStatusMap[date] = "closed";
             sessionExistsMap[date] = new Set();
         }
 
         if (item.name === STATUS_MARKER) {
             const status = (item.church || "").toLowerCase() === "closed" ? "closed" : "open";
             if (status === "open" && lastStatusMap[date] === "closed") {
-                sessionCounterMap[date] += 1;
+                const currentHasData = augmentedData.some(
+                    d => d.__date === date && d.__session === sessionCounterMap[date] && d.name !== STATUS_MARKER
+                );
+                if (currentHasData) {
+                    sessionCounterMap[date] += 1;
+                }
             }
             lastStatusMap[date] = status;
         }
@@ -348,10 +358,17 @@ function deleteEntry(name, date) {
 }
 
 function applySearchAndSort() {
-    const key = meetingDateSelect ? meetingDateSelect.value : makeSessionKey(getLocalDateString(), 1);
+    const today = getLocalDateString();
+    const defaultKey = makeSessionKey(today, sessionCounterMap[today] || 1);
+    const key = (meetingDateSelect && meetingDateSelect.value) ? meetingDateSelect.value : defaultKey;
     const { date, session } = parseSessionKey(key);
 
-    pastors = realAttendance.filter(person => person.__date === date && person.__session === session);
+    // Filter by date & session with fallback to date alone so check-ins are never hidden
+    let sessionPastors = realAttendance.filter(person => person.__date === date && person.__session === session);
+    if (sessionPastors.length === 0) {
+        sessionPastors = realAttendance.filter(person => person.__date === date);
+    }
+    pastors = sessionPastors;
 
     const searchValue = search ? (search.value || "").toLowerCase() : "";
     const selectedCountry = countryFilterSelect ? countryFilterSelect.value : "";
