@@ -1,9 +1,9 @@
 // Session Authentication Guard
 if (sessionStorage.getItem("loggedIn") !== "true") {
     window.location.replace("adlog.html");
-}
+}   
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbwX8xURGjPH-ZDhVAKWWG0dZxLJ-a4ofQVyZF-CJOGJq0_XdsXYtrJKe_GkXnE4_aTK/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbyWQUUAAOC19akJdtvQjq1-f4VvgkPsoDvpq8WNViOwgbrXt0hXg71aB39e4L5B_ZQu/exec";
 const STATUS_MARKER = "__MEETING_STATUS__";
 
 // DOM Elements
@@ -41,7 +41,7 @@ let augmentedData = [];
 let realAttendance = [];
 let pastors = [];
 let attendanceGoal = parseInt(localStorage.getItem("attendanceGoal") || "30", 10);
-let currentMeetingStatus = "open";
+let currentMeetingStatus = "closed"; // Default to closed
 
 let sessionCounterMap = {};
 let lastStatusMap = {};
@@ -142,7 +142,7 @@ function buildSessionData() {
 
         if (!(date in sessionCounterMap)) {
             sessionCounterMap[date] = 1;
-            lastStatusMap[date] = "open";
+            lastStatusMap[date] = "closed"; // Default to closed for new dates
             sessionExistsMap[date] = new Set();
         }
 
@@ -162,7 +162,7 @@ function buildSessionData() {
     realAttendance = augmentedData.filter(item => item.name !== STATUS_MARKER);
     
     const today = getLocalDateString();
-    currentMeetingStatus = lastStatusMap[today] || "open";
+    currentMeetingStatus = lastStatusMap[today] || "closed";
 }
 
 function updateMeetingStatusUI() {
@@ -184,7 +184,7 @@ function toggleMeetingStatus() {
     const nextStatus = currentMeetingStatus === "open" ? "closed" : "open";
     const confirmMsg = nextStatus === "closed" 
         ? "Are you sure you want to CLOSE today's meeting?" 
-        : "Are you sure you want to RE-OPEN today's meeting?";
+        : "Are you sure you want to OPEN today's meeting?";
 
     if (!confirm(confirmMsg)) return;
 
@@ -268,7 +268,7 @@ function renderActivityLog() {
     const statusLogs = augmentedData.filter(item => item.__date === today && item.name === STATUS_MARKER);
 
     if (statusLogs.length === 0) {
-        activityLog.innerHTML = `<p style="color:#888; font-size:13px;">No status events recorded for today.</p>`;
+        activityLog.innerHTML = `<p style="color:#888; font-size:13px;">No status events recorded for today. (Meeting is currently CLOSED)</p>`;
         return;
     }
 
