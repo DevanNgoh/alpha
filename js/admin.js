@@ -3,7 +3,7 @@ if (sessionStorage.getItem("loggedIn") !== "true") {
     window.location.replace("adlog.html");
 }   
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbyWQUUAAOC19akJdtvQjq1-f4VvgkPsoDvpq8WNViOwgbrXt0hXg71aB39e4L5B_ZQu/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbxh2uhCFdQ__pKb3Yy7QGS5u9P44f9wPZfMveLowW66iVp_KOll7FGbOfCAZq2NG5XV/exec";
 const STATUS_MARKER = "__MEETING_STATUS__";
 
 // DOM Elements
@@ -31,6 +31,7 @@ const todayDate = document.getElementById("todayDate");
 const meetingStatus = document.getElementById("meetingStatus");
 const meetingToggleBtn = document.getElementById("meetingToggleBtn");
 const meetingDateSelect = document.getElementById("meetingDateSelect");
+const attendanceListTitle = document.getElementById("attendanceListTitle");
 const activityLog = document.getElementById("activityLog");
 const clearLogBtn = document.getElementById("clearLogBtn");
 
@@ -53,20 +54,34 @@ function getLocalDateString(d = new Date()) {
     return `${year}-${month}-${day}`;
 }
 
+// Check if a string is actually a raw date/time timestamp
+function isDateTimeString(val) {
+    if (!val || typeof val !== "string") return false;
+    const str = val.trim();
+    if (/GMT|UTC|1899|:\d{2}:\d{2}/i.test(str)) return true;
+    if (str.length > 10 && !isNaN(Date.parse(str)) && /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun|\d{4}-\d{2}-\d{2})/i.test(str)) {
+        return true;
+    }
+    return false;
+}
+
 function parseToYYYYMMDD(dateVal) {
     if (!dateVal) return "";
-    const str = String(dateVal).trim();
-    // Regex match to prevent UTC offset day shifts
-    const match = str.match(/(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
-    if (match) {
-        const y = match[1];
-        const m = match[2].padStart(2, '0');
-        const d = match[3].padStart(2, '0');
-        return `${y}-${m}-${d}`;
+    
+    // Check if already in YYYY-MM-DD format
+    if (typeof dateVal === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dateVal.trim())) {
+        return dateVal.trim();
     }
-    const d = new Date(str);
-    if (isNaN(d.getTime())) return str;
-    return getLocalDateString(d);
+    
+    // Try parsing as a Date object
+    const d = new Date(dateVal);
+    if (!isNaN(d.getTime())) {
+        if (d.getFullYear() > 1970) {
+            return getLocalDateString(d);
+        }
+    }
+    
+    return "";
 }
 
 function makeSessionKey(date, session) {
@@ -76,7 +91,7 @@ function makeSessionKey(date, session) {
 function parseSessionKey(key) {
     if (!key) return { date: getLocalDateString(), session: 1 };
     const [date, sessionStr] = key.split("::");
-    return { date: date || getLocalDateString(), session: parseInt(sessionStr, 10) || 1 };
+    return { date, session: parseInt(sessionStr, 10) || 1 };
 }
 
 function applyAdminTheme(theme) {
@@ -142,8 +157,19 @@ function buildSessionData() {
     augmentedData = [];
 
     allAttendanceData.forEach(item => {
-        const date = parseToYYYYMMDD(item.date);
-        if (!date) return;
+        if (!item) return;
+
+        // Extract a valid date from any property if item.date is missing/invalid
+        let date = parseToYYYYMMDD(item.date);
+        if (!date) date = parseToYYYYMMDD(item.church);
+        if (!date) date = parseToYYYYMMDD(item.time);
+        if (!date) date = parseToYYYYMMDD(item.country);
+        if (!date) date = getLocalDateString();
+
+        // Strip date/time timestamps from church & country fields
+        let cleanChurch = isDateTimeString(item.church) ? "" : (item.church || "").trim();
+        let cleanCountry = isDateTimeString(item.country) ? "" : (item.country || "").trim();
+        let cleanName = isDateTimeString(item.name) ? "" : (item.name || "").trim();
 
         if (!(date in sessionCounterMap)) {
             sessionCounterMap[date] = 1;
@@ -154,23 +180,26 @@ function buildSessionData() {
         if (item.name === STATUS_MARKER) {
             const status = (item.church || "").toLowerCase() === "closed" ? "closed" : "open";
             if (status === "open" && lastStatusMap[date] === "closed") {
-                const currentHasData = augmentedData.some(
-                    d => d.__date === date && d.__session === sessionCounterMap[date] && d.name !== STATUS_MARKER
-                );
-                if (currentHasData) {
-                    sessionCounterMap[date] += 1;
-                }
+                sessionCounterMap[date] += 1;
             }
             lastStatusMap[date] = status;
         }
 
         const session = sessionCounterMap[date];
         sessionExistsMap[date].add(session);
-        augmentedData.push({ ...item, __date: date, __session: session });
+
+        augmentedData.push({ 
+            ...item, 
+            name: cleanName || item.name,
+            church: cleanChurch,
+            country: cleanCountry,
+            __date: date, 
+            __session: session 
+        });
     });
 
     realAttendance = augmentedData.filter(item => item.name !== STATUS_MARKER);
-    
+
     const today = getLocalDateString();
     currentMeetingStatus = lastStatusMap[today] || "closed";
 }
@@ -260,7 +289,11 @@ function populateMeetingSessions() {
 function populateCountryFilter() {
     if (!countryFilterSelect) return;
     const currentVal = countryFilterSelect.value;
-    const countries = new Set(realAttendance.map(p => (p.country || "Unspecified").trim()).filter(Boolean));
+    const countries = new Set(
+        realAttendance
+            .map(p => (p.country || "").trim())
+            .filter(c => c && !isDateTimeString(c))
+    );
 
     countryFilterSelect.innerHTML = `<option value="">🌍 All Countries</option>`;
     Array.from(countries).sort().forEach(c => {
@@ -302,8 +335,16 @@ function displayPastors(list, isFiltered) {
     attendanceList.innerHTML = "";
 
     const totalPresent = pastors.length;
-    const uniqueChurches = new Set(pastors.map(p => (p.church || "").trim().toLowerCase()).filter(Boolean)).size;
-    const uniqueCountries = new Set(pastors.map(p => (p.country || "").trim().toLowerCase()).filter(Boolean)).size;
+    const uniqueChurches = new Set(
+        pastors
+            .map(p => (p.church || "").trim().toLowerCase())
+            .filter(c => c && !isDateTimeString(c))
+    ).size;
+    const uniqueCountries = new Set(
+        pastors
+            .map(p => (p.country || "").trim().toLowerCase())
+            .filter(c => c && !isDateTimeString(c))
+    ).size;
 
     if (presentCount) presentCount.innerHTML = totalPresent;
     if (churchCount) churchCount.innerHTML = uniqueChurches;
@@ -323,18 +364,25 @@ function displayPastors(list, isFiltered) {
 
     let cardsHtml = "";
     list.forEach((person) => {
-        let initials = person.name ? person.name.trim().split(/\s+/).map(w => w[0]).join("").substring(0, 2).toUpperCase() : "✝";
+        let name = (person.name || "").trim();
+        let church = isDateTimeString(person.church) ? "" : (person.church || "").trim();
+        let country = isDateTimeString(person.country) ? "" : (person.country || "").trim();
+
+        let displayChurch = church || "Church not provided";
+        let displayCountry = country || "Country unspecified";
+
+        let initials = name ? name.split(/\s+/).map(w => w[0]).join("").substring(0, 2).toUpperCase() : "✝";
 
         cardsHtml += `
         <div class="person">
             <div class="person-header">
                 <div class="avatar">${initials}</div>
                 <div class="person-info">
-                    <div class="person-name">${person.name || "Unknown"}</div>
-                    <div class="person-church">⛪ ${person.church || "Church not provided"}</div>
-                    <div class="person-country">🌍 ${person.country || "Country unspecified"}</div>
+                    <div class="person-name">${name || "Unknown"}</div>
+                    <div class="person-church">⛪ ${displayChurch}</div>
+                    <div class="person-country">🌍 ${displayCountry}</div>
                 </div>
-                <button onclick="deleteEntry('${person.name}', '${person.date}')" class="delete-btn" title="Delete entry">
+                <button onclick="deleteEntry('${(name || '').replace(/'/g, "\\'")}', '${person.date}')" class="delete-btn" title="Delete entry">
                     <i class="fa-solid fa-trash"></i>
                 </button>
             </div>
@@ -358,17 +406,10 @@ function deleteEntry(name, date) {
 }
 
 function applySearchAndSort() {
-    const today = getLocalDateString();
-    const defaultKey = makeSessionKey(today, sessionCounterMap[today] || 1);
-    const key = (meetingDateSelect && meetingDateSelect.value) ? meetingDateSelect.value : defaultKey;
+    const key = meetingDateSelect ? meetingDateSelect.value : makeSessionKey(getLocalDateString(), 1);
     const { date, session } = parseSessionKey(key);
 
-    // Filter by date & session with fallback to date alone so check-ins are never hidden
-    let sessionPastors = realAttendance.filter(person => person.__date === date && person.__session === session);
-    if (sessionPastors.length === 0) {
-        sessionPastors = realAttendance.filter(person => person.__date === date);
-    }
-    pastors = sessionPastors;
+    pastors = realAttendance.filter(person => person.__date === date && person.__session === session);
 
     const searchValue = search ? (search.value || "").toLowerCase() : "";
     const selectedCountry = countryFilterSelect ? countryFilterSelect.value : "";
@@ -421,11 +462,25 @@ function exportToCSV() {
     document.body.removeChild(link);
 }
 
-// Event Listeners
+// Key Event Listeners
+if (logoutBtn) {
+    logoutBtn.addEventListener("click", () => {
+        sessionStorage.removeItem("loggedIn");
+        window.location.replace("adlog.html");
+    });
+}
+
+if (refreshBtn) refreshBtn.addEventListener("click", loadAttendance);
 if (meetingToggleBtn) meetingToggleBtn.addEventListener("click", toggleMeetingStatus);
 if (exportBtn) exportBtn.addEventListener("click", exportToCSV);
+if (printBtn) printBtn.addEventListener("click", () => window.print());
 if (addPastorBtn) addPastorBtn.addEventListener("click", () => addPastorModal.style.display = "flex");
 if (closeModalBtn) closeModalBtn.addEventListener("click", () => addPastorModal.style.display = "none");
+
+if (meetingDateSelect) meetingDateSelect.addEventListener("change", applySearchAndSort);
+if (search) search.addEventListener("input", applySearchAndSort);
+if (countryFilterSelect) countryFilterSelect.addEventListener("change", applySearchAndSort);
+if (sortSelect) sortSelect.addEventListener("change", applySearchAndSort);
 
 if (clearLogBtn) {
     clearLogBtn.addEventListener("click", () => {
@@ -461,25 +516,10 @@ if (addPastorForm) {
             addPastorModal.style.display = "none";
             addPastorForm.reset();
             loadAttendance();
-        });
+        })
+        .catch(err => alert("Failed to add entry."));
     });
 }
 
-if (printBtn) printBtn.addEventListener("click", () => window.print());
-if (search) search.addEventListener("input", applySearchAndSort);
-if (countryFilterSelect) countryFilterSelect.addEventListener("change", applySearchAndSort);
-if (sortSelect) sortSelect.addEventListener("change", applySearchAndSort);
-if (meetingDateSelect) meetingDateSelect.addEventListener("change", applySearchAndSort);
-if (refreshBtn) refreshBtn.addEventListener("click", loadAttendance);
-
-if (logoutBtn) {
-    logoutBtn.addEventListener("click", () => {
-        if (confirm("Are you sure you want to log out?")) {
-            sessionStorage.removeItem("loggedIn");
-            window.location.replace("adlog.html");
-        }
-    });
-}
-
-setInterval(loadAttendance, 30000);
+// Initial fetch on page load
 loadAttendance();
