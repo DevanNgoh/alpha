@@ -68,12 +68,10 @@ function isDateTimeString(val) {
 function parseToYYYYMMDD(dateVal) {
     if (!dateVal) return "";
     
-    // Check if already in YYYY-MM-DD format
     if (typeof dateVal === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dateVal.trim())) {
         return dateVal.trim();
     }
     
-    // Try parsing as a Date object
     const d = new Date(dateVal);
     if (!isNaN(d.getTime())) {
         if (d.getFullYear() > 1970) {
@@ -159,14 +157,12 @@ function buildSessionData() {
     allAttendanceData.forEach(item => {
         if (!item) return;
 
-        // Extract a valid date from any property if item.date is missing/invalid
         let date = parseToYYYYMMDD(item.date);
         if (!date) date = parseToYYYYMMDD(item.church);
         if (!date) date = parseToYYYYMMDD(item.time);
         if (!date) date = parseToYYYYMMDD(item.country);
         if (!date) date = getLocalDateString();
 
-        // Strip date/time timestamps from church & country fields
         let cleanChurch = isDateTimeString(item.church) ? "" : (item.church || "").trim();
         let cleanCountry = isDateTimeString(item.country) ? "" : (item.country || "").trim();
         let cleanName = isDateTimeString(item.name) ? "" : (item.name || "").trim();
@@ -289,11 +285,16 @@ function populateMeetingSessions() {
 function populateCountryFilter() {
     if (!countryFilterSelect) return;
     const currentVal = countryFilterSelect.value;
-    const countries = new Set(
-        realAttendance
-            .map(p => (p.country || "").trim())
-            .filter(c => c && !isDateTimeString(c))
-    );
+
+    const countries = new Set();
+    realAttendance.forEach(p => {
+        let country = (p.country || "").trim();
+        let name = (p.name || "").trim();
+        if (!country && name) country = name;
+        if (country && !isDateTimeString(country)) {
+            countries.add(country);
+        }
+    });
 
     countryFilterSelect.innerHTML = `<option value="">🌍 All Countries</option>`;
     Array.from(countries).sort().forEach(c => {
@@ -335,14 +336,20 @@ function displayPastors(list, isFiltered) {
     attendanceList.innerHTML = "";
 
     const totalPresent = pastors.length;
+    
     const uniqueChurches = new Set(
         pastors
             .map(p => (p.church || "").trim().toLowerCase())
             .filter(c => c && !isDateTimeString(c))
     ).size;
+
     const uniqueCountries = new Set(
         pastors
-            .map(p => (p.country || "").trim().toLowerCase())
+            .map(p => {
+                let country = (p.country || "").trim();
+                if (!country && p.name) country = p.name.trim();
+                return country.toLowerCase();
+            })
             .filter(c => c && !isDateTimeString(c))
     ).size;
 
@@ -364,25 +371,40 @@ function displayPastors(list, isFiltered) {
 
     let cardsHtml = "";
     list.forEach((person) => {
-        let name = (person.name || "").trim();
-        let church = isDateTimeString(person.church) ? "" : (person.church || "").trim();
-        let country = isDateTimeString(person.country) ? "" : (person.country || "").trim();
+        let rawName = (person.name || "").trim();
+        let rawChurch = isDateTimeString(person.church) ? "" : (person.church || "").trim();
+        let rawCountry = isDateTimeString(person.country) ? "" : (person.country || "").trim();
 
-        let displayChurch = church || "Church not provided";
-        let displayCountry = country || "Country unspecified";
+        let displayName = rawName;
+        let displayCountry = rawCountry;
 
-        let initials = name ? name.split(/\s+/).map(w => w[0]).join("").substring(0, 2).toUpperCase() : "✝";
+        // If country is missing and stored in the name slot, pull country out
+        if (!displayCountry && rawName) {
+            displayCountry = rawName;
+            displayName = "Attendee";
+        }
+
+        let displayChurch = rawChurch || "Church not provided";
+        if (!displayCountry) displayCountry = "Country unspecified";
+
+        // Generate clean initials for the avatar circle
+        let initials = "✝";
+        if (displayName && displayName !== "Attendee") {
+            initials = displayName.split(/\s+/).map(w => w[0]).join("").substring(0, 2).toUpperCase();
+        } else if (displayCountry && displayCountry !== "Country unspecified") {
+            initials = displayCountry.substring(0, 2).toUpperCase();
+        }
 
         cardsHtml += `
         <div class="person">
             <div class="person-header">
                 <div class="avatar">${initials}</div>
                 <div class="person-info">
-                    <div class="person-name">${name || "Unknown"}</div>
+                    <div class="person-name">${displayName}</div>
                     <div class="person-church">⛪ ${displayChurch}</div>
                     <div class="person-country">🌍 ${displayCountry}</div>
                 </div>
-                <button onclick="deleteEntry('${(name || '').replace(/'/g, "\\'")}', '${person.date}')" class="delete-btn" title="Delete entry">
+                <button onclick="deleteEntry('${rawName.replace(/'/g, "\\'")}', '${person.date}')" class="delete-btn" title="Delete entry">
                     <i class="fa-solid fa-trash"></i>
                 </button>
             </div>
@@ -415,10 +437,14 @@ function applySearchAndSort() {
     const selectedCountry = countryFilterSelect ? countryFilterSelect.value : "";
 
     let filtered = pastors.filter(person => {
-        const matchesSearch = (person.name || "").toLowerCase().includes(searchValue) ||
-                              (person.church || "").toLowerCase().includes(searchValue) ||
-                              (person.country || "").toLowerCase().includes(searchValue);
-        const matchesCountry = !selectedCountry || (person.country || "Unspecified").trim() === selectedCountry;
+        let name = (person.name || "").toLowerCase();
+        let church = (person.church || "").toLowerCase();
+        let country = (person.country || person.name || "unspecified").toLowerCase();
+
+        const matchesSearch = name.includes(searchValue) ||
+                              church.includes(searchValue) ||
+                              country.includes(searchValue);
+        const matchesCountry = !selectedCountry || country.trim() === selectedCountry.toLowerCase();
         return matchesSearch && matchesCountry;
     });
 
@@ -428,7 +454,7 @@ function applySearchAndSort() {
     } else if (sortMode === "church") {
         filtered.sort((a, b) => (a.church || "").localeCompare(b.church || ""));
     } else if (sortMode === "country") {
-        filtered.sort((a, b) => (a.country || "").localeCompare(b.country || ""));
+        filtered.sort((a, b) => (a.country || a.name || "").localeCompare(b.country || b.name || ""));
     }
 
     displayPastors(filtered, searchValue.length > 0 || selectedCountry.length > 0);
@@ -442,10 +468,16 @@ function exportToCSV() {
 
     let csvContent = "data:text/csv;charset=utf-8,Full Name,Church / Ministry,Country,Time,Date\n";
     pastors.forEach(p => {
+        let name = p.name || '';
+        let country = p.country || '';
+        if (!country && name) {
+            country = name;
+            name = '';
+        }
         const row = [
-            `"${(p.name || '').replace(/"/g, '""')}"`,
+            `"${name.replace(/"/g, '""')}"`,
             `"${(p.church || '').replace(/"/g, '""')}"`,
-            `"${(p.country || '').replace(/"/g, '""')}"`,
+            `"${country.replace(/"/g, '""')}"`,
             `"${p.time || ''}"`,
             `"${p.date || ''}"`
         ];
