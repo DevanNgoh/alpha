@@ -3,22 +3,8 @@ if (sessionStorage.getItem("loggedIn") !== "true") {
     window.location.replace("adlog.html");
 }   
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbxh2uhCFdQ__pKb3Yy7QGS5u9P44f9wPZfMveLowW66iVp_KOll7FGbOfCAZq2NG5XV/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbyPGePG5S-ViJtUtKf04B0QZ87wRZVUUAwV76JvgqzZqKYr91ji7WY4AoommySCUiYV/exec";
 const STATUS_MARKER = "__MEETING_STATUS__";
-
-// Known country lookup list for smart field sorting
-const KNOWN_COUNTRIES = new Set([
-    "united states", "us", "usa", "cameroon", "nigeria", "ghana", "kenya", "uganda",
-    "south africa", "united kingdom", "uk", "canada", "australia", "germany", "france",
-    "india", "brazil", "philippines", "zambia", "zimbabwe", "malawi", "tanzania",
-    "rwanda", "congo", "drc", "ethiopia", "liberia", "sierra leone", "togo", "benin",
-    "ivory coast", "cote d'ivoire", "jamaica", "haiti", "trinidad", "barbados"
-]);
-
-function isLikelyCountry(str) {
-    if (!str) return false;
-    return KNOWN_COUNTRIES.has(str.trim().toLowerCase());
-}
 
 // DOM Elements
 const attendanceList = document.getElementById("attendanceList");
@@ -68,7 +54,6 @@ function getLocalDateString(d = new Date()) {
     return `${year}-${month}-${day}`;
 }
 
-// Check if a string is actually a raw date/time timestamp
 function isDateTimeString(val) {
     if (!val || typeof val !== "string") return false;
     const str = val.trim();
@@ -200,7 +185,7 @@ function buildSessionData() {
 
         augmentedData.push({ 
             ...item, 
-            name: cleanName || item.name,
+            name: cleanName,
             church: cleanChurch,
             country: cleanCountry,
             __date: date, 
@@ -303,8 +288,6 @@ function populateCountryFilter() {
     const countries = new Set();
     realAttendance.forEach(p => {
         let country = (p.country || "").trim();
-        let name = (p.name || "").trim();
-        if (!country && isLikelyCountry(name)) country = name;
         if (country && !isDateTimeString(country)) {
             countries.add(country);
         }
@@ -359,11 +342,7 @@ function displayPastors(list, isFiltered) {
 
     const uniqueCountries = new Set(
         pastors
-            .map(p => {
-                let country = (p.country || "").trim();
-                if (!country && isLikelyCountry(p.name)) country = p.name.trim();
-                return country.toLowerCase();
-            })
+            .map(p => (p.country || "").trim().toLowerCase())
             .filter(c => c && !isDateTimeString(c))
     ).size;
 
@@ -389,30 +368,14 @@ function displayPastors(list, isFiltered) {
         let rawChurch = isDateTimeString(person.church) ? "" : (person.church || "").trim();
         let rawCountry = isDateTimeString(person.country) ? "" : (person.country || "").trim();
 
-        let displayName = "";
-        let displayCountry = rawCountry;
-
-        if (rawCountry) {
-            displayCountry = rawCountry;
-            displayName = rawName || "Pastor / Attendee";
-        } else if (rawName) {
-            if (isLikelyCountry(rawName)) {
-                displayCountry = rawName;
-                displayName = "Pastor / Attendee";
-            } else {
-                displayName = rawName;
-                displayCountry = "Country unspecified";
-            }
-        } else {
-            displayName = "Pastor / Attendee";
-            displayCountry = "Country unspecified";
-        }
-
+        // Direct field mapping without aggressive overriding
+        let displayName = rawName || "Unknown Pastor";
         let displayChurch = rawChurch || "Church not provided";
+        let displayCountry = rawCountry || "Country unspecified";
 
-        // Generate clean initials for the avatar circle
+        // Generate clean initials for avatar
         let initials = "✝";
-        if (displayName && displayName !== "Pastor / Attendee") {
+        if (displayName && displayName !== "Unknown Pastor") {
             initials = displayName.split(/\s+/).filter(Boolean).map(w => w[0]).join("").substring(0, 2).toUpperCase();
         } else if (displayCountry && displayCountry !== "Country unspecified") {
             initials = displayCountry.substring(0, 2).toUpperCase();
@@ -462,7 +425,7 @@ function applySearchAndSort() {
     let filtered = pastors.filter(person => {
         let name = (person.name || "").toLowerCase();
         let church = (person.church || "").toLowerCase();
-        let country = (person.country || (isLikelyCountry(person.name) ? person.name : "unspecified")).toLowerCase();
+        let country = (person.country || "unspecified").toLowerCase();
 
         const matchesSearch = name.includes(searchValue) ||
                               church.includes(searchValue) ||
@@ -477,7 +440,7 @@ function applySearchAndSort() {
     } else if (sortMode === "church") {
         filtered.sort((a, b) => (a.church || "").localeCompare(b.church || ""));
     } else if (sortMode === "country") {
-        filtered.sort((a, b) => (a.country || a.name || "").localeCompare(b.country || b.name || ""));
+        filtered.sort((a, b) => (a.country || "").localeCompare(b.country || ""));
     }
 
     displayPastors(filtered, searchValue.length > 0 || selectedCountry.length > 0);
@@ -491,16 +454,10 @@ function exportToCSV() {
 
     let csvContent = "data:text/csv;charset=utf-8,Full Name,Church / Ministry,Country,Time,Date\n";
     pastors.forEach(p => {
-        let name = p.name || '';
-        let country = p.country || '';
-        if (!country && isLikelyCountry(name)) {
-            country = name;
-            name = '';
-        }
         const row = [
-            `"${name.replace(/"/g, '""')}"`,
+            `"${(p.name || '').replace(/"/g, '""')}"`,
             `"${(p.church || '').replace(/"/g, '""')}"`,
-            `"${country.replace(/"/g, '""')}"`,
+            `"${(p.country || '').replace(/"/g, '""')}"`,
             `"${p.time || ''}"`,
             `"${p.date || ''}"`
         ];
@@ -517,7 +474,7 @@ function exportToCSV() {
     document.body.removeChild(link);
 }
 
-// Key Event Listeners
+// Event Listeners
 if (logoutBtn) {
     logoutBtn.addEventListener("click", () => {
         sessionStorage.removeItem("loggedIn");
@@ -576,5 +533,5 @@ if (addPastorForm) {
     });
 }
 
-// Initial fetch on page load
+// Initial Load
 loadAttendance();
