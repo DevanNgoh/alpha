@@ -3,7 +3,7 @@ if (sessionStorage.getItem("loggedIn") !== "true") {
     window.location.replace("adlog.html");
 }   
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbyPGePG5S-ViJtUtKf04B0QZ87wRZVUUAwV76JvgqzZqKYr91ji7WY4AoommySCUiYV/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbxc7q69JRA_j0KuA1QMX1CCGIEXxioQhnlmA-6mEq0FvXOiYRrTqsUXERiYCyAnQKpK/exec";
 const STATUS_MARKER = "__MEETING_STATUS__";
 
 // DOM Elements
@@ -125,8 +125,8 @@ function loadAttendance() {
 
     fetch(scriptURL)
         .then(response => response.json())
-        .then(result => {
-            allAttendanceData = Array.isArray(result) ? result : (result.data || []);
+        .then(data => {
+            allAttendanceData = Array.isArray(data) ? data : (data.data || []);
             buildSessionData();
             populateMeetingSessions();
             populateCountryFilter();
@@ -169,7 +169,7 @@ function buildSessionData() {
         let cleanDate = rawDate;
         let cleanTime = rawTime;
 
-        // Auto-fix legacy misaligned rows
+        // Auto-fix legacy corrupted rows from previous Apps Script column misalignment
         if (isDateTimeString(rawChurch) && isDateTimeString(rawCountry)) {
             cleanName = rawTime;
             cleanChurch = rawDate;
@@ -395,10 +395,6 @@ function displayPastors(list, isFiltered) {
             initials = displayName.split(/\s+/).map(w => w[0]).join("").substring(0, 2).toUpperCase();
         }
 
-        // Safely escape quotes for deletion handler
-        const safeName = rawName.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-        const safeDate = (person.date || "").replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-
         cardsHtml += `
         <div class="person">
             <div class="person-header">
@@ -408,7 +404,7 @@ function displayPastors(list, isFiltered) {
                     <div class="person-church">⛪ ${displayChurch}</div>
                     <div class="person-country">🌍 ${displayCountry}</div>
                 </div>
-                <button onclick="deleteEntry('${safeName}', '${safeDate}')" class="delete-btn" title="Delete entry">
+                <button onclick="deleteEntry('${rawName.replace(/'/g, "\\'")}', '${person.date}')" class="delete-btn" title="Delete entry">
                     <i class="fa-solid fa-trash"></i>
                 </button>
             </div>
@@ -419,29 +415,16 @@ function displayPastors(list, isFiltered) {
 }
 
 function deleteEntry(name, date) {
-    if (!confirm(`Are you sure you want to delete the entry for "${name}"?`)) return;
+    if (!confirm(`Are you sure you want to delete the entry for ${name}?`)) return;
 
     fetch(scriptURL, {
         method: "POST",
         headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({ 
-            action: "deleteEntry", 
-            name: name, 
-            date: date 
-        })
+        body: JSON.stringify({ action: "deleteEntry", name: name, date: date })
     })
     .then(r => r.json())
-    .then(result => {
-        if (result.status === "success") {
-            loadAttendance();
-        } else {
-            alert(result.message || "Could not delete entry.");
-        }
-    })
-    .catch(err => {
-        console.error("Delete error:", err);
-        alert("Failed to delete entry. Check network connection.");
-    });
+    .then(() => loadAttendance())
+    .catch(err => alert("Failed to delete entry."));
 }
 
 function applySearchAndSort() {
