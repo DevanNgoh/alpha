@@ -6,6 +6,20 @@ if (sessionStorage.getItem("loggedIn") !== "true") {
 const scriptURL = "https://script.google.com/macros/s/AKfycbxh2uhCFdQ__pKb3Yy7QGS5u9P44f9wPZfMveLowW66iVp_KOll7FGbOfCAZq2NG5XV/exec";
 const STATUS_MARKER = "__MEETING_STATUS__";
 
+// Known country lookup list for smart field sorting
+const KNOWN_COUNTRIES = new Set([
+    "united states", "us", "usa", "cameroon", "nigeria", "ghana", "kenya", "uganda",
+    "south africa", "united kingdom", "uk", "canada", "australia", "germany", "france",
+    "india", "brazil", "philippines", "zambia", "zimbabwe", "malawi", "tanzania",
+    "rwanda", "congo", "drc", "ethiopia", "liberia", "sierra leone", "togo", "benin",
+    "ivory coast", "cote d'ivoire", "jamaica", "haiti", "trinidad", "barbados"
+]);
+
+function isLikelyCountry(str) {
+    if (!str) return false;
+    return KNOWN_COUNTRIES.has(str.trim().toLowerCase());
+}
+
 // DOM Elements
 const attendanceList = document.getElementById("attendanceList");
 const presentCount = document.getElementById("presentCount");
@@ -290,7 +304,7 @@ function populateCountryFilter() {
     realAttendance.forEach(p => {
         let country = (p.country || "").trim();
         let name = (p.name || "").trim();
-        if (!country && name) country = name;
+        if (!country && isLikelyCountry(name)) country = name;
         if (country && !isDateTimeString(country)) {
             countries.add(country);
         }
@@ -347,7 +361,7 @@ function displayPastors(list, isFiltered) {
         pastors
             .map(p => {
                 let country = (p.country || "").trim();
-                if (!country && p.name) country = p.name.trim();
+                if (!country && isLikelyCountry(p.name)) country = p.name.trim();
                 return country.toLowerCase();
             })
             .filter(c => c && !isDateTimeString(c))
@@ -375,22 +389,31 @@ function displayPastors(list, isFiltered) {
         let rawChurch = isDateTimeString(person.church) ? "" : (person.church || "").trim();
         let rawCountry = isDateTimeString(person.country) ? "" : (person.country || "").trim();
 
-        let displayName = rawName;
+        let displayName = "";
         let displayCountry = rawCountry;
 
-        // If country is missing and stored in the name slot, pull country out
-        if (!displayCountry && rawName) {
-            displayCountry = rawName;
-            displayName = "Attendee";
+        if (rawCountry) {
+            displayCountry = rawCountry;
+            displayName = rawName || "Pastor / Attendee";
+        } else if (rawName) {
+            if (isLikelyCountry(rawName)) {
+                displayCountry = rawName;
+                displayName = "Pastor / Attendee";
+            } else {
+                displayName = rawName;
+                displayCountry = "Country unspecified";
+            }
+        } else {
+            displayName = "Pastor / Attendee";
+            displayCountry = "Country unspecified";
         }
 
         let displayChurch = rawChurch || "Church not provided";
-        if (!displayCountry) displayCountry = "Country unspecified";
 
         // Generate clean initials for the avatar circle
         let initials = "✝";
-        if (displayName && displayName !== "Attendee") {
-            initials = displayName.split(/\s+/).map(w => w[0]).join("").substring(0, 2).toUpperCase();
+        if (displayName && displayName !== "Pastor / Attendee") {
+            initials = displayName.split(/\s+/).filter(Boolean).map(w => w[0]).join("").substring(0, 2).toUpperCase();
         } else if (displayCountry && displayCountry !== "Country unspecified") {
             initials = displayCountry.substring(0, 2).toUpperCase();
         }
@@ -439,7 +462,7 @@ function applySearchAndSort() {
     let filtered = pastors.filter(person => {
         let name = (person.name || "").toLowerCase();
         let church = (person.church || "").toLowerCase();
-        let country = (person.country || person.name || "unspecified").toLowerCase();
+        let country = (person.country || (isLikelyCountry(person.name) ? person.name : "unspecified")).toLowerCase();
 
         const matchesSearch = name.includes(searchValue) ||
                               church.includes(searchValue) ||
@@ -470,7 +493,7 @@ function exportToCSV() {
     pastors.forEach(p => {
         let name = p.name || '';
         let country = p.country || '';
-        if (!country && name) {
+        if (!country && isLikelyCountry(name)) {
             country = name;
             name = '';
         }
