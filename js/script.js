@@ -15,11 +15,49 @@ if (hour < 12) {
     greeting.innerHTML = "🌙 Good Evening!";
 }
 
-// Pre-fill church & country if previously saved
+// Pre-fill church & country if previously saved + Check Meeting Status
 window.onload = () => {
     document.getElementById("church").value = localStorage.getItem("church") || "";
     document.getElementById("country").value = localStorage.getItem("country") || "";
+    checkMeetingStatus();
 };
+
+// Check if meeting is open or closed
+async function checkMeetingStatus() {
+    try {
+        const res = await fetch(scriptURL);
+        const rawData = await res.json();
+        const status = rawData && rawData.meetingStatus ? rawData.meetingStatus : "closed";
+        
+        const alreadyCheckedIn = message.innerHTML.includes("Attendance Recorded");
+
+        if (status === "open") {
+            if (!alreadyCheckedIn && form.style.display === "none") {
+                message.innerHTML = "";
+                form.style.display = "block";
+            }
+        } else {
+            if (!alreadyCheckedIn) {
+                form.style.display = "none";
+                message.innerHTML = `
+                    <div style="font-size:65px;">🔒</div>
+                    <h2>Meeting Not Yet Open</h2>
+                    <p>Check-in hasn't started yet. This page will unlock automatically once the meeting is opened.</p>
+                `;
+            }
+        }
+    } catch (err) {
+        console.error("Error checking meeting status:", err);
+    }
+}
+
+// Auto-check meeting status every 15 seconds
+setInterval(() => {
+    const alreadyCheckedIn = message.innerHTML.includes("Attendance Recorded");
+    if (!alreadyCheckedIn) {
+        checkMeetingStatus();
+    }
+}, 15000);
 
 function getLocalDateString(d = new Date()) {
     const year = d.getFullYear();
@@ -54,12 +92,12 @@ function launchConfetti() {
 }
 
 function resetFormForNextPerson() {
-    form.style.display = "block";
     message.innerHTML = "";
     document.getElementById("name").value = "";
     button.disabled = false;
     button.innerHTML = "Record Attendance";
     document.getElementById("name").focus();
+    checkMeetingStatus();
 }
 
 form.addEventListener("submit", async (e) => {
@@ -83,15 +121,28 @@ form.addEventListener("submit", async (e) => {
     message.innerHTML = "";
 
     try {
-        // 1. Fetch current attendance list to check for existing entries
+        // 1. Fetch data & check meeting status
         const res = await fetch(scriptURL);
         const rawData = await res.json();
-        const data = Array.isArray(rawData) ? rawData : (rawData.data || []);
+        
+        const meetingStatus = rawData && rawData.meetingStatus ? rawData.meetingStatus : "closed";
+        if (meetingStatus !== "open") {
+            button.disabled = false;
+            button.innerHTML = "Record Attendance";
+            form.style.display = "none";
+            message.innerHTML = `
+                <div style="font-size:65px;">🔒</div>
+                <h2>Meeting Not Yet Open</h2>
+                <p>The meeting is currently closed. Check-in is disabled right now.</p>
+            `;
+            return;
+        }
 
+        // 2. Check for existing duplicate entries
+        const data = Array.isArray(rawData) ? rawData : (rawData.data || []);
         const todayStr = getLocalDateString();
         const normalizedInputName = normalizeName(name);
 
-        // Filter today's real attendance entries (excluding status markers)
         const isAlreadyCheckedIn = data.some(item => {
             const itemDate = item.date ? item.date.split("T")[0] : "";
             return itemDate === todayStr && 
@@ -110,7 +161,7 @@ form.addEventListener("submit", async (e) => {
             return;
         }
 
-        // 2. Perform check-in if duplicate check passed
+        // 3. Perform check-in if checks pass
         button.innerHTML = "Submitting...";
 
         const postRes = await fetch(scriptURL, {
