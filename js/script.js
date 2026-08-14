@@ -1,4 +1,4 @@
-const scriptURL = "https://script.google.com/macros/s/AKfycbwX8xURGjPH-ZDhVAKWWG0dZxLJ-a4ofQVyZF-CJOGJq0_XdsXYtrJKe_GkXnE4_aTK/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbyPGePG5S-ViJtUtKf04B0QZ87wRZVUUAwV76JvgqzZqKYr91ji7WY4AoommySCUiYV/exec";
 
 const form = document.getElementById("attendanceForm");
 const button = document.getElementById("submitBtn");
