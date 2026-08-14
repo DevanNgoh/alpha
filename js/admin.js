@@ -3,7 +3,7 @@ if (sessionStorage.getItem("loggedIn") !== "true") {
     window.location.replace("adlog.html");
 }   
 
-const scriptURL = "https://script.google.com/macros/s/AKfycbwX8xURGjPH-ZDhVAKWWG0dZxLJ-a4ofQVyZF-CJOGJq0_XdsXYtrJKe_GkXnE4_aTK/exec";
+const scriptURL = "https://script.google.com/macros/s/AKfycbyPGePG5S-ViJtUtKf04B0QZ87wRZVUUAwV76JvgqzZqKYr91ji7WY4AoommySCUiYV/exec";
 const STATUS_MARKER = "__MEETING_STATUS__";
 
 // DOM Elements
@@ -54,12 +54,12 @@ function getLocalDateString(d = new Date()) {
     return `${year}-${month}-${day}`;
 }
 
-// Check if a string is actually a raw date/time timestamp
 function isDateTimeString(val) {
     if (!val || typeof val !== "string") return false;
     const str = val.trim();
     if (/GMT|UTC|1899|:\d{2}:\d{2}/i.test(str)) return true;
-    if (str.length > 10 && !isNaN(Date.parse(str)) && /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun|\d{4}-\d{2}-\d{2})/i.test(str)) {
+    if (/\b(AM|PM)\b/i.test(str)) return true;
+    if (str.length >= 8 && !isNaN(Date.parse(str)) && /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun|\d{4}-\d{2}-\d{2})/i.test(str)) {
         return true;
     }
     return false;
@@ -125,8 +125,8 @@ function loadAttendance() {
 
     fetch(scriptURL)
         .then(response => response.json())
-        .then(data => {
-            allAttendanceData = Array.isArray(data) ? data : (data.data || []);
+        .then(result => {
+            allAttendanceData = Array.isArray(result) ? result : (result.data || []);
             buildSessionData();
             populateMeetingSessions();
             populateCountryFilter();
@@ -157,15 +157,30 @@ function buildSessionData() {
     allAttendanceData.forEach(item => {
         if (!item) return;
 
-        let date = parseToYYYYMMDD(item.date);
-        if (!date) date = parseToYYYYMMDD(item.church);
-        if (!date) date = parseToYYYYMMDD(item.time);
-        if (!date) date = parseToYYYYMMDD(item.country);
-        if (!date) date = getLocalDateString();
+        let rawName = (item.name || "").trim();
+        let rawChurch = (item.church || "").trim();
+        let rawCountry = (item.country || "").trim();
+        let rawTime = (item.time || "").trim();
+        let rawDate = (item.date || "").trim();
 
-        let cleanChurch = isDateTimeString(item.church) ? "" : (item.church || "").trim();
-        let cleanCountry = isDateTimeString(item.country) ? "" : (item.country || "").trim();
-        let cleanName = isDateTimeString(item.name) ? "" : (item.name || "").trim();
+        let cleanName = rawName;
+        let cleanChurch = rawChurch;
+        let cleanCountry = rawCountry;
+        let cleanDate = rawDate;
+        let cleanTime = rawTime;
+
+        // Auto-fix legacy misaligned rows
+        if (isDateTimeString(rawChurch) && isDateTimeString(rawCountry)) {
+            cleanName = rawTime;
+            cleanChurch = rawDate;
+            cleanCountry = rawName;
+            cleanDate = rawChurch;
+            cleanTime = rawCountry;
+        }
+
+        let date = parseToYYYYMMDD(cleanDate) || 
+                   parseToYYYYMMDD(cleanTime) || 
+                   getLocalDateString();
 
         if (!(date in sessionCounterMap)) {
             sessionCounterMap[date] = 1;
@@ -173,8 +188,8 @@ function buildSessionData() {
             sessionExistsMap[date] = new Set();
         }
 
-        if (item.name === STATUS_MARKER) {
-            const status = (item.church || "").toLowerCase() === "closed" ? "closed" : "open";
+        if (cleanName === STATUS_MARKER) {
+            const status = (cleanChurch || "").toLowerCase() === "closed" ? "closed" : "open";
             if (status === "open" && lastStatusMap[date] === "closed") {
                 sessionCounterMap[date] += 1;
             }
@@ -186,9 +201,11 @@ function buildSessionData() {
 
         augmentedData.push({ 
             ...item, 
-            name: cleanName || item.name,
+            name: cleanName,
             church: cleanChurch,
             country: cleanCountry,
+            time: cleanTime,
+            date: date,
             __date: date, 
             __session: session 
         });
@@ -373,11 +390,14 @@ function displayPastors(list, isFiltered) {
         let displayChurch = rawChurch || "Church not provided";
         let displayCountry = rawCountry || "Country unspecified";
 
-        // Generate clean initials for the avatar circle
         let initials = "✝";
         if (displayName && displayName !== "Attendee") {
             initials = displayName.split(/\s+/).map(w => w[0]).join("").substring(0, 2).toUpperCase();
         }
+
+        // Safely escape quotes for deletion handler
+        const safeName = rawName.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        const safeDate = (person.date || "").replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
         cardsHtml += `
         <div class="person">
@@ -388,7 +408,7 @@ function displayPastors(list, isFiltered) {
                     <div class="person-church">⛪ ${displayChurch}</div>
                     <div class="person-country">🌍 ${displayCountry}</div>
                 </div>
-                <button onclick="deleteEntry('${rawName.replace(/'/g, "\\'")}', '${person.date}')" class="delete-btn" title="Delete entry">
+                <button onclick="deleteEntry('${safeName}', '${safeDate}')" class="delete-btn" title="Delete entry">
                     <i class="fa-solid fa-trash"></i>
                 </button>
             </div>
@@ -399,16 +419,29 @@ function displayPastors(list, isFiltered) {
 }
 
 function deleteEntry(name, date) {
-    if (!confirm(`Are you sure you want to delete the entry for ${name}?`)) return;
+    if (!confirm(`Are you sure you want to delete the entry for "${name}"?`)) return;
 
     fetch(scriptURL, {
         method: "POST",
         headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({ action: "deleteEntry", name: name, date: date })
+        body: JSON.stringify({ 
+            action: "deleteEntry", 
+            name: name, 
+            date: date 
+        })
     })
     .then(r => r.json())
-    .then(() => loadAttendance())
-    .catch(err => alert("Failed to delete entry."));
+    .then(result => {
+        if (result.status === "success") {
+            loadAttendance();
+        } else {
+            alert(result.message || "Could not delete entry.");
+        }
+    })
+    .catch(err => {
+        console.error("Delete error:", err);
+        alert("Failed to delete entry. Check network connection.");
+    });
 }
 
 function applySearchAndSort() {
@@ -475,7 +508,7 @@ function exportToCSV() {
     document.body.removeChild(link);
 }
 
-// Key Event Listeners
+// Event Listeners
 if (logoutBtn) {
     logoutBtn.addEventListener("click", () => {
         sessionStorage.removeItem("loggedIn");
@@ -534,5 +567,5 @@ if (addPastorForm) {
     });
 }
 
-// Initial fetch on page load
+// Initial Load
 loadAttendance();
