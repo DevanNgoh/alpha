@@ -3,57 +3,90 @@
 
 <head>
 
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Weekly Pastors Fellowship</title>
+    <title>Alpha Weekly Cohort Cameroon Attendance</title>
 
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9C%9D%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="css/style.css">
 
-<link rel="stylesheet" href="css/login.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
-
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
 </head>
 
 <body>
 
-<button id="themeToggle" class="theme-toggle" title="Toggle dark mode">🌙</button>
-
-<div class="container">
+<div class="background"></div>
 
 <div class="card">
 
-<div class="logo">
+    <div class="logo">
 
-✝
+        ✝
+
+    </div>
+
+    <h1>Alpha Weekly Cohort Cameroon</h1>
+
+    <h2>Attendance Check-In</h2>
+
+    <p id="greeting"></p>
+
+    <form id="attendanceForm">
+
+        <div class="input-group">
+
+            <label>Full Name</label>
+
+            <input
+                type="text"
+                id="name"
+                placeholder="Enter your full name"
+                required>
+
+        </div>
+
+        <div class="input-group">
+
+            <label>Church</label>
+
+            <input
+                type="text"
+                id="church"
+                placeholder="Church name">
+
+        </div>
+
+        <button id="submitBtn">
+
+            Record Attendance
+
+        </button>
+
+    </form>
+
+    <p id="message"></p>
+
+    <div class="back-container">
+        <a href="login.html" class="back-link">← Back to Home</a>
+    </div>
+
+    <footer>
+
+        "How good and pleasant it is when God's people live together in unity."
+
+        <br>
+
+        Psalm 133:1
+
+    </footer>
 
 </div>
 
-<h1>Weekly Pastors Fellowship</h1>
-
-<p>
-
-Welcome to today's fellowship.
-
-Please choose an option below.
-
-</p>
-
-<a href="login.html" class="btn primary-btn">
-    📝 Record Attendance
-</a>
-
-<a href="adlog.html" class="btn secondary-btn">
-    🔒 Administrator Login
-</a>
-
-</div>
-
-</div>
-
-<script src="js/theme.js"></script>
+<script src="js/script.js"></script>
 
 </body>
 
